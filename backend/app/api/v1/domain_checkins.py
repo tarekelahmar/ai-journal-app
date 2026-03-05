@@ -1,9 +1,11 @@
 """
 Domain Check-ins API — weekly explicit life domain ratings.
 
+Framework alignment (March 2026): 7 life dimensions.
+
 Endpoints:
 - GET  /api/v1/domain-checkins/status  — check if a domain check-in is due
-- POST /api/v1/domain-checkins         — submit 5 domain ratings
+- POST /api/v1/domain-checkins         — submit 7 domain ratings
 - GET  /api/v1/domain-checkins/history — get past check-in history
 """
 from __future__ import annotations
@@ -26,15 +28,17 @@ from app.engine.domain_checkin_service import (
 router = make_v1_router(prefix="/api/v1/domain-checkins", tags=["domain-checkins"])
 
 
-# ── Schemas ──────────────────────────────────────────────────────
+# ── Schemas (7 life dimensions) ──────────────────────────────────
 
 class DomainCheckinRequest(BaseModel):
     session_id: Optional[int] = None
     career: float = Field(..., ge=1.0, le=10.0)
     relationship: float = Field(..., ge=1.0, le=10.0)
-    social: float = Field(..., ge=1.0, le=10.0)
+    family: float = Field(..., ge=1.0, le=10.0)
     health: float = Field(..., ge=1.0, le=10.0)
     finance: float = Field(..., ge=1.0, le=10.0)
+    social: float = Field(..., ge=1.0, le=10.0)
+    purpose: float = Field(..., ge=1.0, le=10.0)
 
 
 class DomainCheckinStatusResponse(BaseModel):
@@ -48,9 +52,11 @@ class DomainCheckinResponse(BaseModel):
     checkin_date: str
     career: float
     relationship: float
-    social: float
+    family: float
     health: float
     finance: float
+    social: float
+    purpose: float
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -71,13 +77,15 @@ def submit_checkin(
     user_id: int = Depends(get_request_user_id),
     db: Session = Depends(get_db),
 ):
-    """Submit a weekly domain check-in with 5 domain ratings."""
+    """Submit a weekly domain check-in with 7 domain ratings."""
     scores = {
         "career": body.career,
         "relationship": body.relationship,
-        "social": body.social,
+        "family": body.family,
         "health": body.health,
         "finance": body.finance,
+        "social": body.social,
+        "purpose": body.purpose,
     }
     checkin = save_domain_checkin(db, user_id, body.session_id, scores)
     db.commit()
@@ -87,9 +95,11 @@ def submit_checkin(
         checkin_date=checkin.checkin_date,
         career=checkin.career,
         relationship=checkin.relationship,
-        social=checkin.social,
+        family=checkin.family,
         health=checkin.health,
         finance=checkin.finance,
+        social=checkin.social,
+        purpose=checkin.purpose,
     )
 
 

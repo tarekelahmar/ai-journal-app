@@ -1,8 +1,17 @@
+"""
+Check-in schemas.
+
+Framework alignment (March 2026): The only user-input field is overall_wellbeing
+(renamed conceptually to 'daily score'). The V2 sub-sliders (energy, mood, focus,
+connection) and V1 fields (sleep_quality, stress) are deprecated. Sub-dimensions
+are now AI-inferred from journal text and stored in ai_inferred_json.
+"""
+
 from datetime import date, datetime
 
 from typing import Optional, Dict, Any
 
-from pydantic import BaseModel, Field, confloat, conint
+from pydantic import BaseModel, Field, confloat, conint, field_validator
 
 
 # ── V2 scale: 1.0–10.0 float (step 0.5 enforced by frontend) ────
@@ -12,20 +21,30 @@ Score1to10 = confloat(ge=1.0, le=10.0)
 Score0to10 = conint(ge=0, le=10)
 
 
-class DailyCheckInCreate(BaseModel):
-    """Create/upsert a daily check-in.
+class DailyScoreCreate(BaseModel):
+    """Framework-aligned daily score input. One number only."""
+    user_id: int
+    checkin_date: date
+    overall_wellbeing: float = Field(..., ge=1.0, le=10.0, description="Daily score, 1.0-10.0, 0.5 steps")
 
-    V2 form sends: overall_wellbeing, energy, mood, focus, connection (float 1.0-10.0)
-    V1 form sent:  energy, mood, stress, focus, sleep_quality (int 0-10) — deprecated
-    """
+    @field_validator("overall_wellbeing")
+    @classmethod
+    def validate_half_steps(cls, v):
+        if v % 0.5 != 0:
+            raise ValueError("Score must be in 0.5 increments")
+        return v
+
+
+class DailyCheckInCreate(BaseModel):
+    """Create/upsert a daily check-in (backward-compatible, accepts all fields)."""
     user_id: int
     checkin_date: date
 
     # V2 slider fields (1.0-10.0 float)
     overall_wellbeing: Optional[Score1to10] = None
-    energy: Optional[float] = Field(None, ge=0, le=10)  # Accepts both V1 int and V2 float
-    mood: Optional[float] = Field(None, ge=0, le=10)     # Accepts both V1 int and V2 float
-    focus: Optional[float] = Field(None, ge=0, le=10)    # Accepts both V1 int and V2 float
+    energy: Optional[float] = Field(None, ge=0, le=10)
+    mood: Optional[float] = Field(None, ge=0, le=10)
+    focus: Optional[float] = Field(None, ge=0, le=10)
     connection: Optional[Score1to10] = None
 
     # V1 deprecated fields (still accepted for backward compat)
@@ -90,4 +109,3 @@ class DailyCheckInResponse(BaseModel):
 
     class Config:
         from_attributes = True
-

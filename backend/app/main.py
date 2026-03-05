@@ -33,6 +33,7 @@ from app.api.v1.consent import router as consent_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1 import auth
 from app.api.v1.users import router as users_router
+from app.api.v1.actions import router as actions_router
 from app.api.v1.system import router as system_router, public_router as system_public_router
 from app.api.v1.auth_mode import auth_mode_router
 
@@ -105,6 +106,7 @@ app.include_router(journal_chat_router)
 app.include_router(life_domains_router)
 app.include_router(milestones_router)
 app.include_router(domain_checkins_router)
+app.include_router(actions_router)
 app.include_router(preferences_router)
 app.include_router(consent_router)
 app.include_router(audit_router)

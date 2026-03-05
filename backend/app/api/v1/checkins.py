@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 
-from app.api.schemas.checkins import DailyCheckInCreate, DailyCheckInUpdate, DailyCheckInResponse
+from app.api.schemas.checkins import DailyCheckInCreate, DailyCheckInUpdate, DailyCheckInResponse, DailyScoreCreate
 
 from app.domain.repositories.daily_checkin_repository import DailyCheckInRepository
 from app.api.auth_mode import get_request_user_id
@@ -36,6 +36,22 @@ def _run_journal_patterns(user_id: int):
             db.close()
     except Exception as e:
         logger.error(f"Journal pattern computation failed: {e}")
+
+
+@router.post("/daily-score", response_model=DailyCheckInResponse)
+def log_daily_score(
+    payload: DailyScoreCreate,
+    user_id: int = Depends(get_request_user_id),
+    db: Session = Depends(get_db),
+):
+    """Log a single daily score (1.0-10.0, 0.5 steps). Framework-aligned endpoint."""
+    repo = DailyCheckInRepository(db)
+    obj = repo.upsert_for_date(
+        user_id=user_id,
+        checkin_date=payload.checkin_date,
+        overall_wellbeing=payload.overall_wellbeing,
+    )
+    return obj
 
 
 @router.post("/upsert", response_model=DailyCheckInResponse)

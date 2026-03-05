@@ -1,6 +1,8 @@
 """
 Domain Check-in Service — weekly explicit life domain ratings.
 
+Framework alignment (March 2026): 7 life dimensions.
+
 Handles:
 - Checking if a domain check-in is due (>7 days since last)
 - Saving a domain check-in (upsert by date)
@@ -24,14 +26,11 @@ logger = logging.getLogger(__name__)
 
 CHECKIN_INTERVAL_DAYS = 7
 
+DOMAIN_KEYS = ["career", "relationship", "family", "health", "finance", "social", "purpose"]
+
 
 def get_domain_checkin_status(db: Session, user_id: int) -> Dict:
-    """
-    Check whether a weekly domain check-in is due.
-
-    Returns:
-        {"due": bool, "last_checkin_date": str | None, "days_since": int | None}
-    """
+    """Check whether a weekly domain check-in is due."""
     latest = (
         db.query(DomainCheckin)
         .filter(DomainCheckin.user_id == user_id)
@@ -58,21 +57,9 @@ def save_domain_checkin(
     session_id: Optional[int],
     scores: Dict[str, float],
 ) -> DomainCheckin:
-    """
-    Save (upsert) a weekly domain check-in and update EMA scores.
-
-    Args:
-        db: Database session.
-        user_id: User ID.
-        session_id: Optional journal session ID.
-        scores: {user_facing_key: score} e.g. {"career": 7.5, ...}.
-
-    Returns:
-        The DomainCheckin row.
-    """
+    """Save (upsert) a weekly domain check-in and update EMA scores."""
     today = date.today().isoformat()
 
-    # Upsert: check for existing checkin today
     checkin = (
         db.query(DomainCheckin)
         .filter(
@@ -83,31 +70,28 @@ def save_domain_checkin(
     )
 
     if checkin:
-        # Update existing
         checkin.session_id = session_id
-        checkin.career = scores.get("career", checkin.career)
-        checkin.relationship = scores.get("relationship", checkin.relationship)
-        checkin.social = scores.get("social", checkin.social)
-        checkin.health = scores.get("health", checkin.health)
-        checkin.finance = scores.get("finance", checkin.finance)
+        for key in DOMAIN_KEYS:
+            if key in scores:
+                setattr(checkin, key, scores[key])
     else:
-        # Create new
         checkin = DomainCheckin(
             user_id=user_id,
             session_id=session_id,
             checkin_date=today,
             career=scores["career"],
             relationship=scores["relationship"],
-            social=scores["social"],
+            family=scores["family"],
             health=scores["health"],
             finance=scores["finance"],
+            social=scores["social"],
+            purpose=scores["purpose"],
             created_at=datetime.utcnow(),
         )
         db.add(checkin)
 
     db.flush()
 
-    # Apply to LifeDomainScore via EMA (1:1 mapping, alpha=0.5)
     backend_scores = expand_to_backend_scores(scores)
     try:
         apply_explicit_domain_scores(db, user_id, backend_scores)
@@ -115,11 +99,9 @@ def save_domain_checkin(
         logger.exception(
             f"Failed to apply explicit domain scores for user={user_id}"
         )
-        # Don't fail the whole operation — the checkin is still saved
         db.commit()
 
     logger.info(f"Domain check-in saved for user={user_id} date={today}")
-
     return checkin
 
 
@@ -128,17 +110,7 @@ def get_domain_checkin_history(
     user_id: int,
     weeks: int = 12,
 ) -> List[Dict]:
-    """
-    Get recent domain check-in history.
-
-    Args:
-        db: Database session.
-        user_id: User ID.
-        weeks: How many weeks of history to return.
-
-    Returns:
-        List of dicts with check-in data, most recent first.
-    """
+    """Get recent domain check-in history."""
     cutoff = (date.today() - timedelta(weeks=weeks)).isoformat()
 
     checkins = (
@@ -157,9 +129,11 @@ def get_domain_checkin_history(
             "checkin_date": c.checkin_date,
             "career": c.career,
             "relationship": c.relationship,
-            "social": c.social,
+            "family": c.family,
             "health": c.health,
             "finance": c.finance,
+            "social": c.social,
+            "purpose": c.purpose,
         }
         for c in checkins
     ]

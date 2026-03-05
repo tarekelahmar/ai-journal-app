@@ -4,17 +4,15 @@ export type LifeDomainScoreData = {
   total_score: number;
 };
 
+// Framework alignment (March 2026): 7 life dimensions
 export const LIFE_DOMAIN_LABELS: Record<string, string> = {
-  career_work: 'Career & Work',
+  career: 'Career / Work',
   relationship: 'Relationship',
-  physical_health: 'Physical Health',
-  mental_emotional: 'Mental & Emotional',
-  social_friendships: 'Social & Friends',
-  purpose_meaning: 'Purpose & Meaning',
+  family: 'Family',
+  health: 'Physical & Mental Health',
   finance: 'Finance',
-  structure_routine: 'Structure & Routine',
-  growth_learning: 'Growth & Learning',
-  hobbies_play: 'Hobbies & Play',
+  social: 'Social',
+  purpose: 'Purpose',
 };
 
 export const LIFE_DOMAIN_KEYS = Object.keys(LIFE_DOMAIN_LABELS);

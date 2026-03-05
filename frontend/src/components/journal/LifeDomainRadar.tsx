@@ -138,7 +138,7 @@ export function LifeDomainRadar({
       <svg ref={svgRef} width={size} height={size} />
       <div className="text-center mt-1">
         <span className="text-2xl font-bold text-gray-800">{Math.round(totalScore)}</span>
-        <span className="text-xs text-gray-400 ml-1">/ 100</span>
+        <span className="text-xs text-gray-400 ml-1">/ 70</span>
       </div>
       {comparison && (
         <div className="flex items-center gap-2 mt-1">

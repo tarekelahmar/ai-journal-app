@@ -1,10 +1,7 @@
 """
-Life Domain Scores — 10-axis life satisfaction model.
+Life Domain Scores — 7-axis life satisfaction model.
 
-These 10 life domains are SEPARATE from the 10 health domains
-(Sleep, Stress & Nervous System, etc.). Health domains are for
-biomarker insights; life domains are for journal-based wellbeing.
-
+Framework alignment (March 2026): 7 life dimensions locked by product framework.
 Scores are 1.0-10.0 floats, updated via EMA after each journal entry.
 Cold start: all domains at 5.0.
 """
@@ -17,31 +14,25 @@ from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, Uni
 from app.core.database import Base
 
 
-# The 10 life domains
+# The 7 life dimensions (framework-locked)
 LIFE_DOMAINS = [
-    "career_work",
+    "career",
     "relationship",
-    "physical_health",
-    "mental_emotional",
-    "social_friendships",
-    "purpose_meaning",
+    "family",
+    "health",
     "finance",
-    "structure_routine",
-    "growth_learning",
-    "hobbies_play",
+    "social",
+    "purpose",
 ]
 
 LIFE_DOMAIN_LABELS = {
-    "career_work": "Career & Work",
+    "career": "Career / Work",
     "relationship": "Relationship",
-    "physical_health": "Physical Health",
-    "mental_emotional": "Mental & Emotional",
-    "social_friendships": "Social & Friendships",
-    "purpose_meaning": "Purpose & Meaning",
+    "family": "Family",
+    "health": "Physical & Mental Health",
     "finance": "Finance",
-    "structure_routine": "Structure & Routine",
-    "growth_learning": "Growth & Learning",
-    "hobbies_play": "Hobbies & Play",
+    "social": "Social",
+    "purpose": "Purpose",
 }
 
 DEFAULT_SCORE = 5.0
@@ -55,17 +46,14 @@ class LifeDomainScore(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     score_date = Column(String(10), nullable=False)  # "YYYY-MM-DD"
 
-    # 10 life domain scores (1.0-10.0)
-    career_work = Column(Float, nullable=False, default=DEFAULT_SCORE)
+    # 7 life dimension scores (1.0-10.0)
+    career = Column(Float, nullable=False, default=DEFAULT_SCORE)
     relationship = Column(Float, nullable=False, default=DEFAULT_SCORE)
-    physical_health = Column(Float, nullable=False, default=DEFAULT_SCORE)
-    mental_emotional = Column(Float, nullable=False, default=DEFAULT_SCORE)
-    social_friendships = Column(Float, nullable=False, default=DEFAULT_SCORE)
-    purpose_meaning = Column(Float, nullable=False, default=DEFAULT_SCORE)
+    family = Column(Float, nullable=False, default=DEFAULT_SCORE)
+    health = Column(Float, nullable=False, default=DEFAULT_SCORE)
     finance = Column(Float, nullable=False, default=DEFAULT_SCORE)
-    structure_routine = Column(Float, nullable=False, default=DEFAULT_SCORE)
-    growth_learning = Column(Float, nullable=False, default=DEFAULT_SCORE)
-    hobbies_play = Column(Float, nullable=False, default=DEFAULT_SCORE)
+    social = Column(Float, nullable=False, default=DEFAULT_SCORE)
+    purpose = Column(Float, nullable=False, default=DEFAULT_SCORE)
 
     # How each domain score was derived
     derivation_json = Column(Text, nullable=True)
@@ -91,5 +79,5 @@ class LifeDomainScore(Base):
 
     @property
     def total_score(self) -> float:
-        """Sum of all 10 domains (max 100)."""
+        """Sum of all 7 domains (max 70)."""
         return sum(getattr(self, d) for d in LIFE_DOMAINS)

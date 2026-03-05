@@ -17,6 +17,21 @@ export interface DailyScore {
  * Calls GET /api/v1/checkins?start_date=X&end_date=Y and filters to rows
  * that have a non-null overall_wellbeing value.
  */
+/**
+ * Log a daily score (1.0-10.0, 0.5 steps).
+ * Calls POST /api/v1/checkins/daily-score.
+ */
+export async function logDailyScore(
+  checkin_date: string,
+  overall_wellbeing: number,
+): Promise<void> {
+  await apiClient.post('/checkins/daily-score', {
+    user_id: 0, // overridden by backend auth
+    checkin_date,
+    overall_wellbeing,
+  });
+}
+
 export async function getDailyScores(days: number = 14): Promise<DailyScore[]> {
   const end = new Date();
   const start = new Date();

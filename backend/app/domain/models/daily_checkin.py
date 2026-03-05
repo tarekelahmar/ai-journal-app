@@ -7,14 +7,20 @@ from app.core.database import Base
 
 class DailyCheckIn(Base):
     """
-    Daily check-in captures subjective + behavioral context that wearables don't have.
+    Daily check-in captures subjective + behavioral context.
 
-    V2 sliders (1.0-10.0 float, step 0.5):
+    Framework alignment (March 2026): The only user-input field is
+    overall_wellbeing (renamed conceptually to 'daily score'). The V2
+    sub-sliders (energy, mood, focus, connection) and V1 fields
+    (sleep_quality, stress) are deprecated. Sub-dimensions are now
+    AI-inferred from journal text and stored in ai_inferred_json.
+
+    V2 sliders (1.0-10.0 float, step 0.5) — DEPRECATED except overall_wellbeing:
       overall_wellbeing, energy, mood, focus, connection
     V1 sliders (0-10 int, deprecated — kept for backward compat):
       sleep_quality, stress
 
-    AI companion fields (populated by Phase 2 companion service):
+    AI companion fields (populated by companion service):
       ai_inferred_json, context_tags_json, ai_response_text,
       discrepancy_json, milestone_json
     """

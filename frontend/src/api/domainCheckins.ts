@@ -1,5 +1,7 @@
 /**
  * Domain Check-ins API client.
+ *
+ * Framework alignment (March 2026): 7 life dimensions.
  */
 import apiClient from './client';
 
@@ -13,9 +15,11 @@ export interface DomainCheckinSubmit {
   session_id?: number | null;
   career: number;
   relationship: number;
-  social: number;
+  family: number;
   health: number;
   finance: number;
+  social: number;
+  purpose: number;
 }
 
 export interface DomainCheckinResponse {
@@ -23,9 +27,11 @@ export interface DomainCheckinResponse {
   checkin_date: string;
   career: number;
   relationship: number;
-  social: number;
+  family: number;
   health: number;
   finance: number;
+  social: number;
+  purpose: number;
 }
 
 /**

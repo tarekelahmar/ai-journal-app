@@ -1,7 +1,5 @@
-"""LLM translation layer - optional, gated, non-decision-making"""
+"""LLM layer — factor extraction via Anthropic for journal analysis."""
 
-from .client import translate_insight
-from .contracts import LLMInsightInput, LLMInsightOutput
+from .factor_extraction import KNOWN_FACTORS, FACTOR_KEYS, extract_factors_from_text
 
-__all__ = ["translate_insight", "LLMInsightInput", "LLMInsightOutput"]
-
+__all__ = ["KNOWN_FACTORS", "FACTOR_KEYS", "extract_factors_from_text"]

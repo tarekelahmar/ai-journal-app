@@ -1,0 +1,102 @@
+"""Security utilities for authentication and password hashing"""
+from datetime import datetime, timedelta
+from typing import Optional
+from jose import JWTError, jwt
+import bcrypt
+import logging
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+
+from app.config.settings import get_settings
+from app.domain.models.user import User
+from app.core.database import get_db
+from app.dependencies import get_user_repo
+from app.domain.repositories import UserRepository
+
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
+# OAuth2 scheme - auto_error=False means it returns None instead of raising 401
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
+
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt."""
+    if not password:
+        raise ValueError("Password cannot be empty")
+
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        logger.warning("Password exceeds 72 bytes, truncating")
+        password_bytes = password_bytes[:72]
+
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    """Verify password using bcrypt."""
+    try:
+        plain_bytes = plain.encode('utf-8')
+        hashed_bytes = hashed.encode('utf-8')
+        return bcrypt.checkpw(plain_bytes, hashed_bytes)
+    except Exception as e:
+        logger.error(f"Error verifying password: {e}")
+        return False
+
+
+def create_access_token(user_id: int, expires_delta: Optional[timedelta] = None) -> str:
+    """Create JWT access token."""
+    if expires_delta is None:
+        expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    expire = datetime.utcnow() + expires_delta
+    to_encode = {"sub": str(user_id), "exp": expire}
+
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM
+    )
+    return encoded_jwt
+
+
+async def get_current_user(
+    token: Optional[str] = Depends(oauth2_scheme),
+    user_repo: UserRepository = Depends(get_user_repo)
+) -> User:
+    """Verify JWT and return current user."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    if token is None:
+        raise credentials_exception
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError as e:
+        logger.warning(f"JWT decode error: {e}")
+        raise credentials_exception
+
+    try:
+        user = user_repo.get_by_id(int(user_id))
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Invalid user ID in token: {e}")
+        raise credentials_exception
+
+    if user is None:
+        raise credentials_exception
+
+    return user

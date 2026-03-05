@@ -96,8 +96,7 @@ def rate_limit_user(limit: str):
 
 
 # Predefined rate limits from settings
-INSIGHT_RATE_LIMIT = "10/minute"  # 10 insight generations per minute
-LLM_RATE_LIMIT = "5/minute"  # 5 LLM calls per minute (more restrictive)
+LLM_RATE_LIMIT = "5/minute"  # 5 LLM calls per minute (Anthropic)
 AUTH_RATE_LIMIT = "5/minute"  # 5 login attempts per minute
 GENERAL_RATE_LIMIT = "100/hour"  # General API rate limit
 

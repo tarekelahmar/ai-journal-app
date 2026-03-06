@@ -1,14 +1,17 @@
 import React from 'react';
 
 const variantStyles = {
-  default: 'bg-white border border-gray-200',
-  elevated: 'bg-white border border-gray-200 shadow-md',
-  danger: 'bg-red-50 border border-red-200',
-  success: 'bg-emerald-50 border border-emerald-200',
-  warning: 'bg-amber-50 border border-amber-200',
+  default: 'bg-journal-surface',
+  elevated: 'bg-journal-surface shadow-sm',
+  muted: 'bg-journal-surface-alt',
+  positive: 'bg-journal-positive-light',
+  negative: 'bg-journal-negative-light',
+  amber: 'bg-journal-amber-light',
+  accent: 'bg-journal-accent-light',
 };
 
 const paddingStyles = {
+  none: '',
   sm: 'p-3',
   md: 'p-4',
   lg: 'p-6',
@@ -29,7 +32,7 @@ export function Card({
   padding = 'md',
   onClick,
 }: CardProps) {
-  const base = `rounded-lg ${variantStyles[variant]} ${paddingStyles[padding]}`;
+  const base = `rounded-card ${variantStyles[variant]} ${paddingStyles[padding]}`;
   const interactive = onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : '';
 
   return (

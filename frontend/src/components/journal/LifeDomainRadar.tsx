@@ -1,22 +1,22 @@
+/**
+ * Life Domain Radar — warm-palette D3 radar chart (Track 3c restyle).
+ *
+ * Colors: terracotta accent polygon, score-colored dots + labels.
+ */
 import React, { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 import { LIFE_DOMAIN_KEYS, LIFE_DOMAIN_LABELS } from '../../types/LifeDomain';
+import { colors, scoreColor } from '../../theme';
 
 interface LifeDomainRadarProps {
   current: Record<string, number>;
-  comparison?: Record<string, number> | null; // e.g., 30-day-ago scores
+  comparison?: Record<string, number> | null;
   totalScore: number;
   size?: number;
 }
 
 const SCORE_MIN = 1;
 const SCORE_MAX = 10;
-
-function scoreColor(value: number): string {
-  if (value < 4) return '#ef4444';   // red
-  if (value < 7) return '#f59e0b';   // amber
-  return '#10b981';                    // green
-}
 
 export function LifeDomainRadar({
   current,
@@ -44,13 +44,13 @@ export function LifeDomainRadar({
     // Radial scale
     const rScale = d3.scaleLinear().domain([SCORE_MIN, SCORE_MAX]).range([0, radius]);
 
-    // Draw concentric grid circles
+    // Draw concentric grid circles — warm palette
     const levels = [2, 4, 6, 8, 10];
     levels.forEach((level) => {
       g.append('circle')
         .attr('r', rScale(level))
         .attr('fill', 'none')
-        .attr('stroke', '#e5e7eb')
+        .attr('stroke', colors.border)
         .attr('stroke-width', level === 4 || level === 7 ? 1.5 : 0.5)
         .attr('stroke-dasharray', level % 2 === 0 ? 'none' : '2,2');
     });
@@ -65,7 +65,7 @@ export function LifeDomainRadar({
       g.append('line')
         .attr('x1', 0).attr('y1', 0)
         .attr('x2', x).attr('y2', y)
-        .attr('stroke', '#d1d5db')
+        .attr('stroke', colors.borderLight)
         .attr('stroke-width', 0.5);
 
       // Label
@@ -91,28 +91,28 @@ export function LifeDomainRadar({
       .angle((_d, i) => i * angleSlice)
       .curve(d3.curveLinearClosed);
 
-    // Draw comparison polygon (dashed, behind current)
+    // Draw comparison polygon (dashed, behind current) — warm muted accent
     if (comparison) {
       const compData = domains.map((d) => comparison[d] ?? 5);
       g.append('path')
         .datum(compData)
         .attr('d', radarLine as any)
-        .attr('fill', '#6366f1')
+        .attr('fill', colors.accent)
         .attr('fill-opacity', 0.05)
-        .attr('stroke', '#6366f1')
+        .attr('stroke', colors.accent)
         .attr('stroke-width', 1.5)
         .attr('stroke-dasharray', '4,3')
-        .attr('stroke-opacity', 0.5);
+        .attr('stroke-opacity', 0.4);
     }
 
-    // Draw current polygon
+    // Draw current polygon — terracotta accent
     const currentData = domains.map((d) => current[d] ?? 5);
     g.append('path')
       .datum(currentData)
       .attr('d', radarLine as any)
-      .attr('fill', '#6366f1')
-      .attr('fill-opacity', 0.15)
-      .attr('stroke', '#6366f1')
+      .attr('fill', colors.accent)
+      .attr('fill-opacity', 0.12)
+      .attr('stroke', colors.accent)
       .attr('stroke-width', 2);
 
     // Draw score dots on current polygon
@@ -137,13 +137,13 @@ export function LifeDomainRadar({
     <div className="flex flex-col items-center">
       <svg ref={svgRef} width={size} height={size} />
       <div className="text-center mt-1">
-        <span className="text-2xl font-bold text-gray-800">{Math.round(totalScore)}</span>
-        <span className="text-xs text-gray-400 ml-1">/ 70</span>
+        <span className="text-2xl font-bold text-journal-text">{Math.round(totalScore)}</span>
+        <span className="text-xs text-journal-text-muted ml-1">/ 70</span>
       </div>
       {comparison && (
         <div className="flex items-center gap-2 mt-1">
-          <span className="w-4 border-t-2 border-dashed border-indigo-400" />
-          <span className="text-[10px] text-gray-400">30 days ago</span>
+          <span className="w-4 border-t-2 border-dashed border-journal-accent" />
+          <span className="text-[10px] text-journal-text-muted">30 days ago</span>
         </div>
       )}
     </div>

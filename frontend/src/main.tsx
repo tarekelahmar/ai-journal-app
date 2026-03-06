@@ -10,6 +10,7 @@ import DailyScorePage from './pages/DailyScorePage'
 import JournalPage from './pages/JournalPage'
 import DashboardPage from './pages/DashboardPage'
 import ActionsPage from './pages/ActionsPage'
+import ActionDetailPage from './pages/ActionDetailPage'
 import ProfilePage from './pages/ProfilePage'
 import './index.css'
 
@@ -27,6 +28,7 @@ function App() {
         <Route path="/journal" element={<JournalPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/actions" element={<ActionsPage />} />
+        <Route path="/actions/:id" element={<ActionDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 

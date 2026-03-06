@@ -213,6 +213,86 @@ def _get_context_from_companion(db: Session, user_id: int) -> Tuple[str, str, st
         return "Summary unavailable.", "No confirmed patterns yet.", "No behavioral factors tracked today yet."
 
 
+def _format_active_actions(db: Session, user_id: int) -> str:
+    """
+    Build a readable text block of the user's active actions for companion context.
+
+    For habits: includes consistency % from HabitLog.
+    For completable: includes age and mention count in journal messages.
+    """
+    try:
+        from app.domain.models.action import Action
+        from app.domain.models.habit_log import HabitLog
+        from app.domain.models.journal_message import JournalMessage
+
+        actions = (
+            db.query(Action)
+            .filter(Action.user_id == user_id, Action.status == "active")
+            .order_by(Action.sort_order, Action.created_at.desc())
+            .all()
+        )
+
+        if not actions:
+            return "No active actions."
+
+        habits = [a for a in actions if a.action_type == "habit"]
+        completables = [a for a in actions if a.action_type == "completable"]
+
+        lines = ["ACTIVE ACTIONS:"]
+
+        if habits:
+            lines.append("")
+            lines.append("HABITS:")
+            for a in habits:
+                domain_label = f" ({a.primary_domain.title()})" if a.primary_domain else ""
+                # Calculate consistency from habit logs (last 30 days)
+                thirty_days_ago = (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d")
+                today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                log_count = (
+                    db.query(HabitLog)
+                    .filter(
+                        HabitLog.action_id == a.id,
+                        HabitLog.completed == True,
+                        HabitLog.log_date >= thirty_days_ago,
+                        HabitLog.log_date <= today_str,
+                    )
+                    .count()
+                )
+                days_active = min(30, (datetime.utcnow() - a.created_at).days or 1)
+                consistency = int((log_count / days_active) * 100) if days_active > 0 else 0
+                lines.append(
+                    f'- "{a.title}"{domain_label} — {consistency}% consistency '
+                    f'({log_count} of {days_active} days)'
+                )
+
+        if completables:
+            lines.append("")
+            lines.append("COMPLETABLE:")
+            for a in completables:
+                domain_label = f" ({a.primary_domain.title()})" if a.primary_domain else ""
+                days_old = (datetime.utcnow() - a.created_at).days
+                # Count mentions in journal messages (simple substring match)
+                mention_count = (
+                    db.query(JournalMessage)
+                    .filter(
+                        JournalMessage.user_id == user_id,
+                        JournalMessage.role == "user",
+                        JournalMessage.content.ilike(f"%{a.title[:40]}%"),
+                    )
+                    .count()
+                )
+                lines.append(
+                    f'- "{a.title}"{domain_label} — {days_old} days old, '
+                    f'mentioned {mention_count} time{"s" if mention_count != 1 else ""}'
+                )
+
+        return "\n".join(lines)
+
+    except Exception as e:
+        logger.warning(f"Could not build active actions context: {e}")
+        return "Action data unavailable."
+
+
 # ── Streaming Response ────────────────────────────────────────────
 
 async def stream_chat_response(
@@ -244,12 +324,19 @@ async def stream_chat_response(
     # ── Build context ──
     rolling_summary, active_patterns, today_factors = _get_context_from_companion(db, user_id)
     previous_session_text = _build_previous_session_text(db, user_id, session.id)
+    active_actions_text = _format_active_actions(db, user_id)
+
+    # Resolve depth level from user preferences (not hardcoded)
+    from app.engine.journal_companion import _resolve_depth_level
+    depth_level = _resolve_depth_level(db, user_id, explicit_depth=None, word_count=None)
 
     system_prompt = build_chat_system_prompt(
+        depth_level=depth_level,
         active_patterns_text=active_patterns,
         rolling_summary_text=rolling_summary,
         previous_session_text=previous_session_text,
         today_factors_text=today_factors,
+        active_actions_text=active_actions_text,
     )
 
     # Build conversation history (including the new user message, already saved)
@@ -324,6 +411,7 @@ async def stream_chat_response(
     # real-time Actions tab updates. The streaming tokens are already fully
     # rendered, so the small delay on the done event is acceptable.
     extracted_factors: Dict[str, Any] = {}
+    analysis: Optional[Dict] = None
     try:
         analysis = _run_analysis(client, model, conversation_messages, user_id)
         if analysis:
@@ -343,6 +431,10 @@ async def stream_chat_response(
 
     if extracted_factors:
         done_payload['extracted_factors'] = extracted_factors
+
+    # Include extracted actions from analysis (frontend will render commit cards)
+    if analysis and analysis.get("extracted_actions"):
+        done_payload['extracted_actions'] = analysis["extracted_actions"]
 
     # Domain check-in trigger: only after 3+ user messages (same gate as score proposals)
     try:

@@ -93,15 +93,7 @@ def _format_recent_entries(entries: List[DailyCheckIn], max_entries: int = 7) ->
     for entry in entries[:max_entries]:
         scores = []
         if entry.overall_wellbeing is not None:
-            scores.append(f"Wellbeing={entry.overall_wellbeing}")
-        if entry.energy is not None:
-            scores.append(f"Energy={entry.energy}")
-        if entry.mood is not None:
-            scores.append(f"Mood={entry.mood}")
-        if entry.focus is not None:
-            scores.append(f"Focus={entry.focus}")
-        if entry.connection is not None:
-            scores.append(f"Connection={entry.connection}")
+            scores.append(f"Score={entry.overall_wellbeing}")
 
         score_str = ", ".join(scores) if scores else "no scores"
         notes_preview = ""
@@ -315,11 +307,7 @@ def _call_companion_llm(
     # Build the user message with today's entry injected
     user_message = (
         f"Today's entry ({entry_date}):\n"
-        f"Scores: Overall Wellbeing={slider_scores.get('overall_wellbeing', 'N/A')}, "
-        f"Energy={slider_scores.get('energy', 'N/A')}, "
-        f"Mood={slider_scores.get('mood', 'N/A')}, "
-        f"Focus={slider_scores.get('focus', 'N/A')}, "
-        f"Connection={slider_scores.get('connection', 'N/A')}\n\n"
+        f"Daily score: {slider_scores.get('overall_wellbeing', 'N/A')}/10\n\n"
         f"Journal text:\n---\n{entry_text[:3000] if entry_text else '(no text)'}\n---\n\n"
         f"Respond in the JSON format specified in your instructions."
     )
@@ -471,10 +459,6 @@ def generate_companion_response(
 
     slider_scores = {
         "overall_wellbeing": checkin.overall_wellbeing,
-        "energy": checkin.energy,
-        "mood": checkin.mood,
-        "focus": checkin.focus,
-        "connection": checkin.connection,
     }
 
     # ── 1. Check if LLM is enabled ───────────────────────────────

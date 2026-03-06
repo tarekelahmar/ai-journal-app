@@ -1,12 +1,14 @@
 """
 Journal V3 Analysis System Prompt — managed artifact.
 
+Framework alignment (March 2026): adds extracted_actions and language_quality
+to the JSON output format. Actions are genuine commitments (habit or completable)
+linked to life domains with confidence scores.
+
 This prompt is used for the second (non-streamed) LLM call after a chat
 response has been streamed. It extracts structured analysis (dimensions,
-context tags, factors) from the full conversation transcript.
-
-This mirrors the JSON output format of the V2 companion prompt, but operates
-on a conversation transcript rather than a single entry.
+context tags, factors, actions, language quality) from the full conversation
+transcript.
 """
 
 JOURNAL_ANALYSIS_SYSTEM_PROMPT = """\
@@ -50,7 +52,20 @@ OUTPUT FORMAT — respond ONLY in valid JSON (no markdown, no explanation):
   }},
   "custom_factors": [
     {{"key": "snake_case", "value": true, "label": "Human Label"}}
-  ]
+  ],
+  "extracted_actions": [
+    {{
+      "text": "Have the scope conversation with James",
+      "action_type": "completable",
+      "domain": "career",
+      "confidence": 0.9
+    }}
+  ],
+  "language_quality": {{
+    "precision": <1.0-10.0 or null>,
+    "honesty": <1.0-10.0 or null>,
+    "avoidance_level": <1.0-10.0 or null>
+  }}
 }}
 
 INSTRUCTIONS:
@@ -59,7 +74,25 @@ INSTRUCTIONS:
 - "inferred_dimensions" are your read of the user's deeper psychological states — use null if not enough signal
 - "context_tags" captures situational context mentioned by the user
 - sentiment_score is mandatory (always infer from the user's messages, -1.0 to 1.0)
-- Be conservative with custom_factors — only add if a clear new pattern is mentioned"""
+- Be conservative with custom_factors — only add if a clear new pattern is mentioned
+
+"extracted_actions" — identify commitments the user makes or implies during the conversation:
+- Only extract GENUINE commitments, not vague statements
+- BAD: "I should work out more" — too vague, not a commitment
+- GOOD: "I'm going to prioritise going to the gym" — clear commitment
+- BAD: "Go to the gym 3 times this week" — checkbox task, not a life commitment
+- GOOD: "Prioritise daily exercise" — ongoing commitment the system can track
+- action_type: "habit" (ongoing, never done) or "completable" (has a clear finish line)
+- domain: one of "career", "relationship", "family", "health", "finance", "social", "purpose"
+- confidence: 0.0-1.0, how confident you are this is a real commitment
+- Only return actions with confidence >= 0.7
+- Return empty array if no clear commitments were made
+
+"language_quality" — assess how the user expresses themselves:
+- precision: how specific and concrete is their language? (vague = low, specific = high)
+- honesty: does the language read as honest or is there hedging, minimising, performing? (performing = low, raw/honest = high)
+- avoidance_level: how much is the user talking around things vs directly addressing them? (direct = low avoidance, circling = high avoidance)
+- Use null if not enough text to assess"""
 
 
 def build_analysis_prompt(*, factor_keys_text: str = "") -> str:

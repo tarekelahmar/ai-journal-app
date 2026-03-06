@@ -26,6 +26,8 @@ export interface ChatMessageData {
   content: string;
   created_at: string;
   isStreaming?: boolean;
+  /** Actions extracted from this assistant response (set on SSE done) */
+  extractedActions?: ExtractedAction[];
 }
 
 /** Grouped messages under a session divider */
@@ -43,6 +45,14 @@ export interface ScoreConfirmResult {
   date: string;
 }
 
+/** Action extracted by the analysis LLM from conversation */
+export type ExtractedAction = {
+  text: string;
+  action_type: 'habit' | 'completable';
+  domain: string;
+  confidence: number;
+};
+
 /** SSE event types from the chat endpoint */
 export type SSETokenEvent = {
   type: 'token';
@@ -56,6 +66,7 @@ export type SSEDoneEvent = {
   proposed_score?: number;
   domain_checkin_due?: boolean;
   extracted_factors?: Record<string, any>;
+  extracted_actions?: ExtractedAction[];
 };
 
 export type SSEEvent = SSETokenEvent | SSEDoneEvent;

@@ -1,10 +1,9 @@
 /**
- * Journal V3 — Chat Input.
+ * Journal V3 — Chat Input (wireframe-aligned).
  *
- * Textarea with dynamic height, send arrow button.
- * Enter sends (Shift+Enter for newline). Disabled while assistant is responding.
- *
- * Based on reference-chat-ui.jsx input area pattern.
+ * Warm border, cream-tinted background.
+ * Voice button (non-functional) on left, terracotta send on right.
+ * No "Rate your day" button — score is on the Daily Score screen.
  */
 import React, { useRef, useEffect, KeyboardEvent } from 'react';
 
@@ -14,10 +13,6 @@ interface ChatInputProps {
   onSend: () => void;
   disabled?: boolean;
   placeholder?: string;
-  /** Show "Rate your day" button */
-  showRateDay?: boolean;
-  /** Called when user taps "Rate your day" */
-  onRateDay?: () => void;
 }
 
 export function ChatInput({
@@ -26,8 +21,6 @@ export function ChatInput({
   onSend,
   disabled = false,
   placeholder = "What's on your mind...",
-  showRateDay = false,
-  onRateDay,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -52,57 +45,50 @@ export function ChatInput({
   const canSend = value.trim().length > 0 && !disabled;
 
   return (
-    <div className="px-4 py-3 border-t border-gray-200 bg-white">
-      <div className="flex items-end gap-2">
-        {showRateDay && onRateDay && (
-          <button
-            onClick={onRateDay}
-            className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-amber-50 hover:bg-amber-100 text-amber-500 transition-colors"
-            aria-label="Rate your day"
-            title="Rate your day"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-          </button>
-        )}
-        <div className="flex-1 bg-gray-50 rounded-2xl border border-gray-200 px-4 py-2.5 focus-within:border-blue-300 transition-colors">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={disabled}
-            rows={1}
-            className="w-full bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none outline-none disabled:opacity-50"
-            style={{ minHeight: 20, maxHeight: 120 }}
-          />
-        </div>
+    <div className="px-4 py-3 bg-journal-bg">
+      {/* Text area card */}
+      <div className="bg-journal-surface border border-journal-border rounded-card px-4 py-3 mb-2.5">
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          rows={1}
+          className="w-full bg-transparent text-[14px] text-journal-text placeholder:text-journal-text-muted resize-none outline-none disabled:opacity-50"
+          style={{ minHeight: 20, maxHeight: 120 }}
+        />
+      </div>
+
+      {/* Action row: voice + send */}
+      <div className="flex items-center justify-between">
+        {/* Voice button (non-functional) */}
+        <button
+          className="w-9 h-9 rounded-full bg-journal-surface border border-journal-border-light flex items-center justify-center text-journal-text-muted"
+          aria-label="Voice input"
+          disabled
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="8" y1="23" x2="16" y2="23" />
+          </svg>
+        </button>
+
+        {/* Send button */}
         <button
           onClick={onSend}
           disabled={!canSend}
-          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${
+          className={`text-[13px] font-semibold px-5 py-2 rounded-full transition-colors ${
             canSend
-              ? 'bg-blue-600 hover:bg-blue-500 text-white'
-              : 'bg-gray-100 text-gray-300'
+              ? 'bg-journal-accent text-white hover:bg-journal-accent-hover'
+              : 'bg-journal-surface-alt text-journal-text-muted'
           }`}
           aria-label="Send message"
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          >
-            <line x1="12" y1="19" x2="12" y2="5" />
-            <polyline points="5 12 12 5 19 12" />
-          </svg>
+          Send
         </button>
       </div>
     </div>

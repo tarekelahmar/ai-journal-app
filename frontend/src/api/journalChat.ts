@@ -10,6 +10,7 @@ import type {
   SessionMessage,
   ScoreConfirmResult,
   SSEEvent,
+  ExtractedAction,
 } from '../types/JournalChat';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -22,7 +23,14 @@ export function sendMessage(
   message: string,
   sessionId: number | undefined,
   onToken: (token: string) => void,
-  onDone: (data: { session_id: number; message_id: number; proposed_score?: number }) => void,
+  onDone: (data: {
+    session_id: number;
+    message_id: number;
+    proposed_score?: number;
+    domain_checkin_due?: boolean;
+    extracted_factors?: Record<string, any>;
+    extracted_actions?: ExtractedAction[];
+  }) => void,
   onError: (error: Error) => void,
 ): AbortController {
   const controller = new AbortController();
@@ -87,6 +95,9 @@ export function sendMessage(
                   session_id: event.session_id,
                   message_id: event.message_id,
                   proposed_score: event.proposed_score,
+                  domain_checkin_due: event.domain_checkin_due,
+                  extracted_factors: event.extracted_factors,
+                  extracted_actions: event.extracted_actions,
                 });
               }
             } catch {

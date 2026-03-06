@@ -118,6 +118,11 @@ def get_journal_patterns(
         rel = p.relationship_json or {}
         if not rel.get("pattern_name"):
             continue
+        effect = rel.get("effect_size", 0)
+        # Convert Cohen's d effect size to approximate percentage impact
+        # effect_size of 0.5 ≈ 10%, 1.0 ≈ 15%, 1.5 ≈ 20%, 2.0 ≈ 25%
+        impact_pct = round(min(30, abs(effect) * 12))
+
         results.append(JournalPatternResponse(
             id=p.id,
             pattern_name=rel.get("pattern_name", ""),
@@ -131,9 +136,10 @@ def get_journal_patterns(
             status=p.status,
             mean_with=rel.get("mean_with", 0),
             mean_without=rel.get("mean_without", 0),
-            effect_size=rel.get("effect_size", 0),
+            effect_size=effect,
             exceptions=rel.get("exceptions", 0),
             n_observations=p.times_observed,
+            impact_percentage=impact_pct,
         ))
 
     # Sort: confirmed first, then by confidence descending

@@ -35,6 +35,7 @@ export interface JournalPatternData {
   confidence: number;
   status: string;
   n_observations: number;
+  impact_percentage: number;
 }
 
 export interface PatternComputeResult {

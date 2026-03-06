@@ -44,6 +44,7 @@ class JournalPatternResponse(BaseModel):
     effect_size: float
     exceptions: int
     n_observations: int
+    impact_percentage: int = 0  # approximate % impact for dashboard display
 
 
 class PatternComputeResponse(BaseModel):

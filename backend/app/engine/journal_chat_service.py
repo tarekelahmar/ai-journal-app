@@ -421,6 +421,14 @@ async def stream_chat_response(
     except Exception as e:
         logger.error(f"Analysis extraction failed (non-fatal): {e}")
 
+    # Sync habit logs if analysis produced context tags
+    if analysis and analysis.get("context_tags"):
+        try:
+            from app.engine.habit_log_sync import sync_habit_logs_from_analysis
+            sync_habit_logs_from_analysis(db, user_id)
+        except Exception as e:
+            logger.error(f"Habit log sync failed (non-fatal): {e}")
+
     done_payload: Dict[str, Any] = {
         'type': 'done',
         'session_id': session.id,
@@ -624,6 +632,20 @@ def confirm_daily_score(
         detect_milestones(db, user_id, checkin_date)
     except Exception as e:
         logger.warning(f"Milestone detection failed (non-fatal): {e}")
+
+    # 6. Recalculate action impacts
+    try:
+        from app.engine.action_impact import recalculate_all_impacts
+        recalculate_all_impacts(db, user_id)
+    except Exception as e:
+        logger.error(f"Action impact recalculation failed (non-fatal): {e}")
+
+    # 7. Sync habit logs from today's analysis
+    try:
+        from app.engine.habit_log_sync import sync_habit_logs_from_analysis
+        sync_habit_logs_from_analysis(db, user_id)
+    except Exception as e:
+        logger.error(f"Habit log sync failed (non-fatal): {e}")
 
     db.commit()
 

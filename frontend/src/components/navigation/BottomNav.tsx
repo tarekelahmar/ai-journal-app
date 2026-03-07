@@ -57,10 +57,9 @@ const NAV_ITEMS: NavItem[] = [
 
 // ── Colors ───────────────────────────────────────────────────────
 
-const BAR_BG = '#2A2520';       // warm dark
-const INACTIVE_COLOR = '#8C8278'; // warm grey on dark bg
-const ACTIVE_PILL_BG = '#FAF8F5'; // cream
-const ACTIVE_COLOR = '#2A2520';   // dark on cream pill
+const INACTIVE_COLOR = '#8C8278';   // warm grey
+const ACTIVE_PILL_BG = '#C4704B';   // solid terracotta
+const ACTIVE_COLOR = '#FFFFFF';     // white on terracotta
 
 // ── Component ────────────────────────────────────────────────────
 
@@ -80,13 +79,16 @@ export function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-50 flex justify-center"
       style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}
     >
-      {/* Pill bar — auto-width on desktop, near-full on mobile */}
+      {/* Frosted glass pill bar */}
       <div
         className="flex items-center mx-4 sm:mx-auto"
         style={{
-          backgroundColor: BAR_BG,
+          background: 'rgba(255, 255, 255, 0.72)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(232, 227, 220, 0.5)',
           borderRadius: 30,
-          padding: '6px 10px',
+          padding: '6px 8px',
           gap: 4,
           maxWidth: 680,
         }}
@@ -104,7 +106,7 @@ export function BottomNav() {
                 backgroundColor: active ? ACTIVE_PILL_BG : 'transparent',
                 color: active ? ACTIVE_COLOR : INACTIVE_COLOR,
                 borderRadius: 24,
-                padding: active ? '6px 16px' : '6px 14px',
+                padding: active ? '8px 16px' : '8px 12px',
                 gap: active ? 8 : 0,
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 minHeight: 36,

@@ -17,8 +17,6 @@ const PAD_BOTTOM = 8;
 const PAD_LEFT = 4;
 const PAD_RIGHT = 4;
 const DOT_RADIUS = 3;
-const Y_MIN = 1;
-const Y_MAX = 10;
 const CHART_WIDTH = 200;
 
 function trendInfo(scores: DailyScore[]): { label: string; color: string } | null {
@@ -53,10 +51,23 @@ export function ScoreSparkline({ scores, days = 7 }: ScoreSparklineProps) {
     );
   }
 
+  // Scale y-axis to actual data range with 1-point padding, clamped 1-10
+  const rawScores = data.map((d) => d.score);
+  const rawMin = Math.min(...rawScores);
+  const rawMax = Math.max(...rawScores);
+  // Ensure minimum 2-point range so identical scores sit in the middle
+  let yMin = Math.max(1, rawMin - 1);
+  let yMax = Math.min(10, rawMax + 1);
+  if (yMax - yMin < 2) {
+    const mid = (rawMin + rawMax) / 2;
+    yMin = Math.max(1, mid - 1);
+    yMax = Math.min(10, mid + 1);
+  }
+
   const plotWidth = CHART_WIDTH - PAD_LEFT - PAD_RIGHT;
   const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
   const toY = (score: number) => {
-    const ratio = (score - Y_MIN) / (Y_MAX - Y_MIN);
+    const ratio = (score - yMin) / (yMax - yMin);
     return PAD_TOP + plotHeight - ratio * plotHeight;
   };
   const xStep = data.length > 1 ? plotWidth / (data.length - 1) : 0;

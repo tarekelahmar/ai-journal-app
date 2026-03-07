@@ -1,16 +1,17 @@
 /**
- * Onboarding — Score 7 life dimensions + optional context.
+ * Onboarding — Score 7 life dimensions in a compact one-screen layout.
  *
- * Progress bar across top, one dimension at a time (or all at once).
- * "Set my baseline" CTA at the bottom.
+ * - 3-segment progress bar (step 2 of 3)
+ * - Heading + subtext
+ * - 7 compact dimension cards (tap to expand)
+ * - "Set my baseline" CTA
+ *
+ * No bottom nav — standalone flow.
  */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { ProgressBar } from '../components/ui/ProgressBar';
 import { LIFE_DIMENSIONS } from '../theme';
-import { scoreColor } from '../theme';
+import { colors } from '../theme';
 import { submitDomainCheckin } from '../api/domainCheckins';
 
 interface DimensionScore {
@@ -20,11 +21,24 @@ interface DimensionScore {
 
 const DEFAULT_SCORE = 5;
 
+// Onboarding-specific score colour: ≤3 red, 4-5 amber, ≥6 green
+function dimScoreColor(score: number): string {
+  if (score >= 6) return colors.positive;
+  if (score >= 4) return colors.amber;
+  return colors.negative;
+}
+
+// Gradient colours for the expanded slider
+const GRADIENT_LEFT = '#C47A6B';
+const GRADIENT_MID = '#B8A48C';
+const GRADIENT_RIGHT = '#7A8F6B';
+const TRACK_UNFILLED = '#F3F0EB';
+
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
-  // Each dimension gets a score (1-10) and optional context string
   const [scores, setScores] = useState<Record<string, DimensionScore>>(() => {
     const init: Record<string, DimensionScore> = {};
     for (const dim of LIFE_DIMENSIONS) {
@@ -32,10 +46,6 @@ export default function OnboardingPage() {
     }
     return init;
   });
-
-  const filledCount = LIFE_DIMENSIONS.filter(
-    (d) => scores[d.key].score !== DEFAULT_SCORE || scores[d.key].context.length > 0,
-  ).length;
 
   const handleScoreChange = (key: string, score: number) => {
     setScores((prev) => ({
@@ -51,10 +61,13 @@ export default function OnboardingPage() {
     }));
   };
 
+  const toggleExpand = (key: string) => {
+    setExpandedKey((prev) => (prev === key ? null : key));
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      // Submit domain check-in as baseline
       const payload: Record<string, number> = {};
       for (const dim of LIFE_DIMENSIONS) {
         payload[dim.key] = scores[dim.key].score;
@@ -80,86 +93,153 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-full bg-journal-bg flex flex-col mx-auto w-full" style={{ maxWidth: 680 }}>
-      {/* Header */}
-      <div className="px-5 pt-10 pb-4">
-        <h1 className="text-2xl font-semibold text-journal-text">
-          Where are you right now?
-        </h1>
-        <p className="text-sm text-journal-text-secondary mt-2">
-          Score each area of your life. Be honest — this is your starting point,
-          not a performance review.
-        </p>
-      </div>
+      <div className="px-5 pt-10 flex flex-col flex-1">
 
-      {/* Progress */}
-      <div className="px-5 pb-4">
-        <ProgressBar value={filledCount} max={7} size="sm" />
-      </div>
+        {/* 2b: Progress bar — 3 segments, step 2 of 3 */}
+        <div className="flex gap-1 mb-8">
+          <div className="flex-1 h-[3px] rounded-sm" style={{ backgroundColor: colors.accent }} />
+          <div className="flex-1 h-[3px] rounded-sm" style={{ backgroundColor: colors.accent }} />
+          <div className="flex-1 h-[3px] rounded-sm" style={{ backgroundColor: colors.border }} />
+        </div>
 
-      {/* Dimension cards */}
-      <div className="flex-1 overflow-y-auto px-5 pb-32 space-y-3">
-        {LIFE_DIMENSIONS.map((dim) => {
-          const entry = scores[dim.key];
-          return (
-            <Card key={dim.key} padding="lg">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-journal-text">
-                    {dim.label}
-                  </h3>
-                </div>
-                <span
-                  className="text-2xl font-bold tabular-nums"
-                  style={{ color: scoreColor(entry.score) }}
-                >
-                  {entry.score}
-                </span>
-              </div>
-
-              {/* Score slider */}
-              <input
-                type="range"
-                min={1}
-                max={10}
-                step={1}
-                value={entry.score}
-                onChange={(e) => handleScoreChange(dim.key, Number(e.target.value))}
-                className="w-full h-1.5 rounded-full appearance-none cursor-pointer mb-3"
-                style={{
-                  background: `linear-gradient(to right, ${scoreColor(entry.score)} 0%, ${scoreColor(entry.score)} ${((entry.score - 1) / 9) * 100}%, #E8E4E0 ${((entry.score - 1) / 9) * 100}%, #E8E4E0 100%)`,
-                }}
-              />
-
-              {/* Scale labels */}
-              <div className="flex justify-between text-[10px] text-journal-text-muted mb-3">
-                <span>Struggling</span>
-                <span>Thriving</span>
-              </div>
-
-              {/* Context input */}
-              <input
-                type="text"
-                placeholder="One line of context (optional)"
-                value={entry.context}
-                onChange={(e) => handleContextChange(dim.key, e.target.value)}
-                className="w-full text-sm bg-journal-surface-alt rounded-xl px-3 py-2
-                  text-journal-text placeholder:text-journal-text-muted
-                  border-0 outline-none focus:ring-2 focus:ring-journal-accent/30"
-              />
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Fixed CTA */}
-      <div className="fixed bottom-0 left-0 right-0 bg-journal-bg px-5 py-4 safe-area-bottom border-t border-journal-border-light">
-        <Button
-          size="full"
-          onClick={handleSubmit}
-          disabled={submitting}
+        {/* 2a: Heading */}
+        <h1
+          className="text-journal-text"
+          style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.15, marginBottom: 8 }}
         >
-          {submitting ? 'Saving...' : 'Set my baseline'}
-        </Button>
+          Score your life{'\n'}
+          <br />as it is today.
+        </h1>
+        <p
+          className="text-journal-text-secondary"
+          style={{ fontSize: 14, fontWeight: 400, lineHeight: 1.5, marginBottom: 28 }}
+        >
+          Be honest. This is your starting point — not a judgement.
+          Tap any dimension to add context.
+        </p>
+
+        {/* 2c: Dimension cards */}
+        <div className="flex flex-col" style={{ gap: 10 }}>
+          {LIFE_DIMENSIONS.map((dim) => {
+            const entry = scores[dim.key];
+            const isExpanded = expandedKey === dim.key;
+            const fillPct = ((entry.score - 1) / 9) * 100;
+            const barFillColor = dimScoreColor(entry.score);
+
+            // Slider gradient for expanded state
+            const sliderFillPct = ((entry.score - 1) / 9) * 100;
+            const sliderBg = `linear-gradient(to right, ${GRADIENT_LEFT} 0%, ${GRADIENT_MID} ${sliderFillPct * 0.5}%, ${GRADIENT_RIGHT} ${sliderFillPct}%, ${TRACK_UNFILLED} ${sliderFillPct}%, ${TRACK_UNFILLED} 100%)`;
+
+            return (
+              <div
+                key={dim.key}
+                className="bg-white"
+                style={{ borderRadius: 16, padding: '16px 20px' }}
+              >
+                {/* Collapsed row — always visible */}
+                <div
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => toggleExpand(dim.key)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p style={{ fontSize: 15, fontWeight: 600, color: colors.text }}>
+                      {dim.label}
+                    </p>
+                    {!isExpanded && (
+                      <p style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                        Tap to add why
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0 ml-3">
+                    {/* Mini progress bar — 70px */}
+                    <div
+                      style={{
+                        width: 70,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: '#F3F0EB',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${fillPct}%`,
+                          height: '100%',
+                          borderRadius: 3,
+                          backgroundColor: barFillColor,
+                          transition: 'width 0.2s ease, background-color 0.2s ease',
+                        }}
+                      />
+                    </div>
+                    {/* Score number */}
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        fontSize: 22,
+                        fontWeight: 700,
+                        color: barFillColor,
+                        minWidth: 24,
+                        textAlign: 'right',
+                      }}
+                    >
+                      {entry.score}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Expanded content — slider + context input */}
+                {isExpanded && (
+                  <div style={{ marginTop: 14 }}>
+                    <input
+                      type="range"
+                      min={1}
+                      max={10}
+                      step={1}
+                      value={entry.score}
+                      onChange={(e) => handleScoreChange(dim.key, Number(e.target.value))}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                      style={{ background: sliderBg }}
+                    />
+                    <div className="flex justify-between text-[10px] text-journal-text-muted mt-1 mb-3">
+                      <span>1</span>
+                      <span>10</span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="One line of context (optional)"
+                      value={entry.context}
+                      onChange={(e) => handleContextChange(dim.key, e.target.value)}
+                      className="w-full bg-journal-surface-alt rounded-xl px-3 py-2
+                        text-journal-text placeholder:text-journal-text-muted
+                        border-0 outline-none focus:ring-2 focus:ring-journal-accent/30"
+                      style={{ fontSize: 13 }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 2d: CTA */}
+        <div style={{ marginTop: 28, paddingBottom: 32 }}>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full text-white font-semibold disabled:opacity-60"
+            style={{
+              backgroundColor: colors.accent,
+              borderRadius: 14,
+              padding: 16,
+              fontSize: 16,
+              fontWeight: 600,
+            }}
+          >
+            {submitting ? 'Saving...' : 'Set my baseline'}
+          </button>
+        </div>
       </div>
     </div>
   );

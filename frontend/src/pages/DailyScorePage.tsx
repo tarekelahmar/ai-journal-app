@@ -6,7 +6,7 @@
  * - Full-width gradient slider (0.5 steps)
  * - Yesterday's log card (with time)
  * - 7-day mini bar chart (slim bars, no numbers, today stub)
- * - "Log score & journal" CTA
+ * - "Log score" CTA
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -262,7 +262,7 @@ export default function DailyScorePage() {
               fontWeight: 600,
             }}
           >
-            {submitting ? 'Logging...' : 'Log score & journal'}
+            {submitting ? 'Logging...' : 'Log score'}
           </button>
         </div>
       </div>

@@ -86,7 +86,7 @@ export default function ConsentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" style={{ maxWidth: 680, margin: '0 auto' }}>
         <div className="text-gray-600">Loading...</div>
       </div>
     );
@@ -98,7 +98,7 @@ export default function ConsentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-md mx-auto space-y-6">
+      <div className="mx-auto space-y-6" style={{ maxWidth: 680 }}>
         {/* What this is / is not */}
         <div className="bg-white rounded-lg p-6 space-y-4">
           <h1 className="text-2xl font-semibold text-gray-900">What this is / is not</h1>

@@ -7,8 +7,9 @@
 import apiClient from './client';
 
 export interface DailyScore {
-  date: string;      // YYYY-MM-DD
-  score: number;     // 1.0-10.0
+  date: string;        // YYYY-MM-DD
+  score: number;       // 1.0-10.0
+  created_at?: string; // ISO datetime from backend
 }
 
 /**
@@ -43,13 +44,14 @@ export async function getDailyScores(days: number = 14): Promise<DailyScore[]> {
     params: { start_date: fmt(start), end_date: fmt(end), limit: days },
   });
 
-  const items: Array<{ checkin_date: string; overall_wellbeing: number | null }> = res.data;
+  const items: Array<{ checkin_date: string; overall_wellbeing: number | null; created_at?: string }> = res.data;
 
   return items
     .filter((item) => item.overall_wellbeing != null)
     .map((item) => ({
       date: item.checkin_date,
       score: item.overall_wellbeing!,
+      created_at: item.created_at,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }

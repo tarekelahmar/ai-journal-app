@@ -593,7 +593,8 @@ def clear_existing(db):
 
 def seed_user(db) -> User:
     """Create the demo user."""
-    user = User(id=USER_ID, name="Tarek", email="tarek@demo.com", hashed_password="demo")
+    from app.config.security import hash_password
+    user = User(id=USER_ID, name="Tarek", email="tarek@demo.com", hashed_password=hash_password("demo"))
     db.add(user)
     db.flush()
     return user

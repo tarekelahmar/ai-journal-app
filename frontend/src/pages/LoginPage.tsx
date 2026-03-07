@@ -10,7 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function LoginPage() {
   const navigate = useNavigate();
   const { setUserId } = useAuth();
-  const [userIdInput, setUserIdInput] = useState('');
+  const [userIdInput, setUserIdInput] = useState('1');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -40,11 +40,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-sm p-8 space-y-6">
+      <div className="w-full bg-white rounded-lg shadow-sm p-8 space-y-6" style={{ maxWidth: 680 }}>
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Enter your user ID to continue
+            Alpha demo — enter a numeric user ID
           </p>
         </div>
 
@@ -55,12 +55,13 @@ export default function LoginPage() {
             </label>
             <input
               id="userId"
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={userIdInput}
               onChange={(e) => setUserIdInput(e.target.value)}
               required
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              placeholder="Enter user ID"
+              placeholder="e.g. 1"
             />
           </div>
 

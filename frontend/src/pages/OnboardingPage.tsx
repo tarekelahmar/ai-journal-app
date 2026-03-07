@@ -79,7 +79,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-full bg-journal-bg flex flex-col">
+    <div className="min-h-full bg-journal-bg flex flex-col mx-auto w-full" style={{ maxWidth: 680 }}>
       {/* Header */}
       <div className="px-5 pt-10 pb-4">
         <h1 className="text-2xl font-semibold text-journal-text">

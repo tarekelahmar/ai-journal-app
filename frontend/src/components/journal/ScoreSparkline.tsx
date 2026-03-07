@@ -11,9 +11,9 @@ interface ScoreSparklineProps {
   days?: number;
 }
 
-const HEIGHT = 48;
-const PAD_TOP = 8;
-const PAD_BOTTOM = 8;
+const HEIGHT = 110;
+const PAD_TOP = 10;
+const PAD_BOTTOM = 10;
 const PAD_LEFT = 4;
 const PAD_RIGHT = 4;
 const DOT_RADIUS = 3;
@@ -77,7 +77,7 @@ export function ScoreSparkline({ scores, days = 7 }: ScoreSparklineProps) {
   const lastIdx = data.length - 1;
 
   return (
-    <div className="bg-journal-surface rounded-card px-4 py-3 flex items-center gap-4">
+    <div className="bg-journal-surface rounded-card px-4 py-3.5 flex items-center gap-4">
       {/* SVG sparkline */}
       <div className="flex-1" style={{ minWidth: 0 }}>
         <svg

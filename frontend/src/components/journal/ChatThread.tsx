@@ -117,23 +117,30 @@ interface ChatThreadProps {
   sessionGroups: SessionGroup[];
   /** Inline score card rendered after session messages */
   renderScoreCard?: (sessionId: number, proposedScore: number | null) => React.ReactNode;
+  /** Content rendered at the top of the scroll area (e.g. sparkline, follow-up card) */
+  headerContent?: React.ReactNode;
 }
 
-export function ChatThread({ sessionGroups, renderScoreCard }: ChatThreadProps) {
+export function ChatThread({ sessionGroups, renderScoreCard, headerContent }: ChatThreadProps) {
   const endRef = useRef<HTMLDivElement>(null);
+  const isInitialLoad = useRef(true);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll: instant on first load, smooth on subsequent updates
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    endRef.current?.scrollIntoView({ behavior: isInitialLoad.current ? 'auto' : 'smooth' });
+    isInitialLoad.current = false;
   }, [sessionGroups]);
 
   if (sessionGroups.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center py-20">
-        <div className="text-center px-6">
-          <p className="text-sm text-journal-text-muted leading-relaxed">
-            Start a conversation. How are you doing today?
-          </p>
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        {headerContent}
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center px-6">
+            <p className="text-sm text-journal-text-muted leading-relaxed">
+              Start a conversation. How are you doing today?
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -141,6 +148,7 @@ export function ChatThread({ sessionGroups, renderScoreCard }: ChatThreadProps) 
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-3">
+      {headerContent}
       {sessionGroups.map((group) => {
         const { date, time } = formatSessionDate(group.started_at);
 

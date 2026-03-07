@@ -5,15 +5,13 @@
  * Renders inside AppShell (bottom nav provided by layout route).
  *
  * Structure (top to bottom):
- * 1. Header with date + "Journal" title + today's score badge
- * 2. Mini trend sparkline (7-day)
- * 3. AI follow-up card (conditional — when overdue completable actions exist)
- * 4. Conversation thread (scrollable)
- * 5. Active habit pills (conditional)
- * 6. Text input area (fixed bottom)
+ * 1. Header with date + "Journal" title + today's score badge (fixed)
+ * 2. AI follow-up card (conditional — scrolls with content)
+ * 3. Conversation thread (scrollable, auto-scrolls to bottom)
+ * 4. Active habit pills (conditional)
+ * 5. Text input area (fixed bottom)
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ScoreSparkline } from '../components/journal/ScoreSparkline';
 import { ChatThread } from '../components/journal/ChatThread';
 import { ChatInput } from '../components/journal/ChatInput';
 import { DailyScoreCard } from '../components/journal/DailyScoreCard';
@@ -342,22 +340,17 @@ export default function JournalPage() {
         </div>
       </div>
 
-      {/* ── Mini trend sparkline ── */}
-      <div className="px-4 pb-2">
-        <ScoreSparkline scores={dailyScores} days={7} />
-      </div>
-
-      {/* ── AI follow-up card (conditional) ── */}
-      {overdueCompletable && (
-        <div className="px-4 pb-2">
-          <FollowUpCard action={overdueCompletable} />
-        </div>
-      )}
-
-      {/* ── Conversation thread (scrollable) ── */}
+      {/* ── Scrollable content: sparkline + follow-up + conversation ── */}
       <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
         <ChatThread
           sessionGroups={sessionGroups}
+          headerContent={
+            overdueCompletable ? (
+              <div className="pb-3">
+                <FollowUpCard action={overdueCompletable} />
+              </div>
+            ) : undefined
+          }
           renderScoreCard={(sessionId) => {
             const state = scoreStates[sessionId];
             if (!state) return null;

@@ -19,7 +19,7 @@ export function FollowUpCard({ action }: FollowUpCardProps) {
         Following up
       </span>
       <p className="text-[13.5px] text-journal-text mt-1.5 leading-relaxed">
-        You said you'd {action.title.toLowerCase()}. Has that happened yet?
+        You said you'd {action.title.charAt(0).toLowerCase() + action.title.slice(1)}. Has that happened yet?
       </p>
     </div>
   );

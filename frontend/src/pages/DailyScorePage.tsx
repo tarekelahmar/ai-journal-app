@@ -11,7 +11,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { scoreColor, colors } from '../theme';
 import { getDailyScores, logDailyScore } from '../api/dailyScores';
@@ -57,10 +56,11 @@ function formatShortDay(dateStr: string): string {
 
 // ── Gradient slider colors ─────────────────────────────────────
 
-const GRADIENT_LEFT = colors.negative;   // clay red
-const GRADIENT_MID = colors.amber;       // amber/tan
-const GRADIENT_RIGHT = colors.positive;  // olive/sage green
-const TRACK_UNFILLED = colors.borderLight; // light grey
+// Exact gradient colors per spec
+const GRADIENT_LEFT = '#C47A6B';   // journal-negative
+const GRADIENT_MID = '#B8A48C';    // journal-secondary
+const GRADIENT_RIGHT = '#7A8F6B';  // journal-positive
+const TRACK_UNFILLED = '#F3F0EB';  // journal-surface
 
 // ── Mini Bar Chart ─────────────────────────────────────────────
 
@@ -81,7 +81,8 @@ function MiniBarChart({ scores, today }: { scores: DailyScore[]; today: string }
         const hasScore = day.score != null;
         // Bar height proportional to score: score * 6px
         const barHeight = hasScore ? day.score! * 6 : 4;
-        const barColor = hasScore ? scoreColor(day.score!) : colors.border;
+        // No score → neutral warm grey stub; has score → colour-coded
+        const barColor = hasScore ? scoreColor(day.score!) : '#E8E3DC';
 
         return (
           <div key={day.date} className="flex flex-col items-center flex-1">
@@ -93,14 +94,13 @@ function MiniBarChart({ scores, today }: { scores: DailyScore[]; today: string }
                 height: `${barHeight}px`,
                 backgroundColor: barColor,
                 minHeight: '4px',
-                opacity: hasScore ? 1 : 0.4,
               }}
             />
-            {/* Day label */}
+            {/* Day label — today is always bold + accent */}
             <span
               className="text-[10px] mt-1.5"
               style={{
-                color: isToday && !hasScore ? colors.accent : (isToday ? '#2C2C2C' : colors.textMuted),
+                color: isToday ? colors.accent : colors.textMuted,
                 fontWeight: isToday ? 700 : 400,
               }}
             >
@@ -171,8 +171,9 @@ export default function DailyScorePage() {
 
   const displayScore = score % 1 === 0 ? score.toFixed(0) : score.toFixed(1);
 
-  // Slider gradient: full gradient from red → amber → green across the filled portion
+  // Slider gradient: smooth continuous blend across the filled portion, neutral unfilled
   const fillPct = ((score - 1) / 9) * 100;
+  // The gradient spans 0–100% of the track; we clip it at fillPct with the unfilled colour
   const sliderBg = `linear-gradient(to right, ${GRADIENT_LEFT} 0%, ${GRADIENT_MID} ${fillPct * 0.5}%, ${GRADIENT_RIGHT} ${fillPct}%, ${TRACK_UNFILLED} ${fillPct}%, ${TRACK_UNFILLED} 100%)`;
 
   return (
@@ -182,7 +183,7 @@ export default function DailyScorePage() {
         <div>
           <h1 className="text-lg font-semibold text-journal-text">{formatDate(today)}</h1>
           <p className="text-sm text-journal-text-secondary mt-0.5">
-            {todayLogged ? 'Score logged' : "How's your day?"}
+            {"How's your day?"}
           </p>
         </div>
 
@@ -208,8 +209,7 @@ export default function DailyScorePage() {
               step={0.5}
               value={score}
               onChange={(e) => setScore(Number(e.target.value))}
-              disabled={todayLogged}
-              className="w-full h-2 rounded-full appearance-none cursor-pointer disabled:cursor-default"
+              className="w-full h-2 rounded-full appearance-none cursor-pointer"
               style={{ background: sliderBg }}
             />
             <div className="flex justify-between text-[10px] text-journal-text-muted mt-1.5">
@@ -248,30 +248,23 @@ export default function DailyScorePage() {
           <MiniBarChart scores={dailyScores} today={today} />
         </Card>
 
-        {/* 3g: CTA — visible above floating nav (AppShell adds 88px bottom padding) */}
-        {!todayLogged && (
-          <div className="pb-2">
-            <Button
-              size="full"
-              onClick={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? 'Logging...' : 'Log score & journal'}
-            </Button>
-          </div>
-        )}
-
-        {todayLogged && (
-          <div className="pb-2">
-            <Button
-              size="full"
-              variant="secondary"
-              onClick={() => navigate('/journal')}
-            >
-              Continue to journal
-            </Button>
-          </div>
-        )}
+        {/* CTA — always visible above floating nav */}
+        <div className="pb-4">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full text-white font-semibold disabled:opacity-60"
+            style={{
+              backgroundColor: colors.accent,
+              borderRadius: 14,
+              padding: 16,
+              fontSize: 16,
+              fontWeight: 600,
+            }}
+          >
+            {submitting ? 'Logging...' : 'Log score & journal'}
+          </button>
+        </div>
       </div>
     </div>
   );

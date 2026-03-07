@@ -176,34 +176,53 @@ function ImpactBars({ factors }: { factors: ImpactFactor[] }) {
   const maxPct = Math.max(...factors.map((f) => f.impact_percentage), 1);
 
   return (
-    <div className="space-y-3">
-      {factors.map((factor) => {
-        const isPositive = factor.direction === 'positive';
-        const pct = (factor.impact_percentage / maxPct) * 50;
+    <div>
+      {/* HURTS / % IMPACT / HELPS header row */}
+      <div className="flex items-center justify-between mb-3.5">
+        <span className="text-[9px] uppercase tracking-wider font-bold text-journal-negative">Hurts</span>
+        <span className="text-[9px] uppercase tracking-wider text-journal-text-muted">% Impact</span>
+        <span className="text-[9px] uppercase tracking-wider font-bold text-journal-positive">Helps</span>
+      </div>
 
-        return (
-          <div key={factor.label}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[12px] text-journal-text-secondary">{factor.label}</span>
-              <span className={`text-[11px] font-medium ${isPositive ? 'text-journal-positive' : 'text-journal-negative'}`}>
-                {isPositive ? '+' : '-'}{factor.impact_percentage}%
-              </span>
+      <div className="space-y-3">
+        {factors.map((factor) => {
+          const isPositive = factor.direction === 'positive';
+          const pct = (factor.impact_percentage / maxPct) * 50;
+
+          return (
+            <div key={factor.label}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[12px] text-journal-text-secondary">{factor.label}</span>
+                <span className={`text-[11px] font-medium ${isPositive ? 'text-journal-positive' : 'text-journal-negative'}`}>
+                  {isPositive ? '+' : '-'}{factor.impact_percentage}%
+                </span>
+              </div>
+              <div className="relative h-2.5 bg-journal-surface-alt rounded-full overflow-hidden">
+                {/* Centre divider line */}
+                <div
+                  className="absolute top-0 bottom-0 z-10"
+                  style={{
+                    left: '50%',
+                    width: '1.5px',
+                    marginLeft: '-0.75px',
+                    backgroundColor: colors.textMuted,
+                    opacity: 0.4,
+                  }}
+                />
+                <div
+                  className={`absolute top-0 bottom-0 rounded-full ${
+                    isPositive ? 'bg-journal-positive' : 'bg-journal-negative'
+                  }`}
+                  style={{
+                    left: isPositive ? '50%' : `${50 - pct}%`,
+                    width: `${pct}%`,
+                  }}
+                />
+              </div>
             </div>
-            <div className="relative h-2.5 bg-journal-surface-alt rounded-full overflow-hidden">
-              <div className="absolute left-1/2 top-0 bottom-0 w-px bg-journal-border" />
-              <div
-                className={`absolute top-0 bottom-0 rounded-full ${
-                  isPositive ? 'bg-journal-positive' : 'bg-journal-negative'
-                }`}
-                style={{
-                  left: isPositive ? '50%' : `${50 - pct}%`,
-                  width: `${pct}%`,
-                }}
-              />
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -218,37 +237,43 @@ function DomainBars({
   previous: Record<string, number> | null;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {LIFE_DIMENSIONS.map((dim) => {
         const score = current[dim.key] ?? 0;
+        const rounded = Math.round(score);
         const prevScore = previous?.[dim.key] ?? null;
-        const delta = prevScore !== null ? score - prevScore : null;
+        const delta = prevScore !== null ? Math.round(score - prevScore) : null;
         const pct = ((score - 1) / 9) * 100;
 
         return (
-          <div key={dim.key}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[12px] text-journal-text-secondary">{dim.shortLabel}</span>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[12px] font-semibold ${domainTextClass(score)}`}>
-                  {score.toFixed(1)}
-                </span>
-                {delta !== null && delta !== 0 && (
-                  <span className={`text-[10px] font-medium ${delta > 0 ? 'text-journal-positive' : 'text-journal-negative'}`}>
-                    {delta > 0 ? '▲' : '▼'}{Math.abs(delta).toFixed(1)}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="h-2 bg-journal-surface-alt rounded-full overflow-hidden">
+          <div key={dim.key} className="flex items-center gap-2">
+            {/* Domain name — fixed width */}
+            <span className="text-[12px] text-journal-text-secondary shrink-0" style={{ width: 80 }}>
+              {dim.shortLabel}
+            </span>
+
+            {/* Bar — constrained to ~55% of remaining space */}
+            <div className="h-2 bg-journal-surface-alt rounded-full overflow-hidden" style={{ width: '55%', flexShrink: 0 }}>
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
-                  width: `${Math.max(pct, 2)}%`,
+                  width: `${Math.max(pct, 4)}%`,
                   backgroundColor: domainBarColor(score),
                 }}
               />
             </div>
+
+            {/* Score number — bold, colour-coded */}
+            <span className={`text-[15px] font-bold ${domainTextClass(score)} shrink-0`} style={{ minWidth: 18, textAlign: 'right' }}>
+              {rounded}
+            </span>
+
+            {/* Delta */}
+            {delta !== null && delta !== 0 && (
+              <span className={`text-[10px] font-medium shrink-0 ${delta > 0 ? 'text-journal-positive' : 'text-journal-negative'}`}>
+                {delta > 0 ? '+' : ''}{delta}
+              </span>
+            )}
           </div>
         );
       })}
@@ -379,7 +404,7 @@ export default function DashboardPage() {
 
       {/* ── 30-Day Trend Chart ──────────────────────────────── */}
       <Card>
-        <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-muted mb-3">
+        <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-secondary mb-3">
           30-Day Trend
         </p>
         <TrendChart scores={data.daily_scores} />
@@ -387,7 +412,7 @@ export default function DashboardPage() {
 
       {/* ── Impact Bars ─────────────────────────────────────── */}
       <Card>
-        <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-muted mb-3">
+        <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-secondary mb-3">
           What Impacts Your Score
         </p>
         <ImpactBars factors={data.impact_factors} />
@@ -396,7 +421,7 @@ export default function DashboardPage() {
       {/* ── Life Domains ────────────────────────────────────── */}
       {hasDomains && (
         <Card>
-          <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-muted mb-3">
+          <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-secondary mb-3">
             Life Domains
           </p>
           <DomainBars current={data.current_domains} previous={data.previous_domains} />

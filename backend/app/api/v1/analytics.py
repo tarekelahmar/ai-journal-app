@@ -193,7 +193,12 @@ def _compute_trend(scores: List[dict]) -> tuple:
 
 def _compute_streak(scores: List[dict]) -> tuple:
     """
-    Compute best streak: consecutive days with score above personal median.
+    Compute current streak: consecutive scored days (from most recent
+    scored day backwards) with score above personal median.
+
+    Starts from the latest entry, NOT from today — so users who haven't
+    logged today still see their active streak.
+
     Returns (streak_length, threshold).
     """
     if not scores:
@@ -202,17 +207,27 @@ def _compute_streak(scores: List[dict]) -> tuple:
     all_vals = [s["score"] for s in scores]
     median = sorted(all_vals)[len(all_vals) // 2]
 
-    # Compute current streak from today backwards
+    # Sort newest-first
     sorted_scores = sorted(scores, key=lambda s: s["date"], reverse=True)
-    today = date.today()
-    streak = 0
 
+    # Start from the most recent scored day and walk backwards
+    streak = 0
     for i, s in enumerate(sorted_scores):
-        expected = str(today - timedelta(days=i))
-        if s["date"] == expected and s["score"] >= median:
-            streak += 1
+        if i == 0:
+            # First entry: just check if score is above median
+            if s["score"] >= median:
+                streak = 1
+                prev_date = date.fromisoformat(s["date"])
+            else:
+                break
         else:
-            break
+            current_date = date.fromisoformat(s["date"])
+            # Must be exactly 1 day before the previous entry
+            if prev_date - current_date == timedelta(days=1) and s["score"] >= median:
+                streak += 1
+                prev_date = current_date
+            else:
+                break
 
     return streak, round(median, 1)
 

@@ -5,9 +5,9 @@
  * 5+ parallel API calls. All metrics computed server-side.
  *
  * Sections (top → bottom):
- *   1. Header with date
- *   2. Headline metrics row (Floor · Trend · Streak)
- *   3. 30-day SVG area trend chart
+ *   1. Header ("Your progress" / "Dashboard")
+ *   2. Headline metrics row (Floor · Trend · Streak) — color-block cards
+ *   3. 30-day SVG smooth area trend chart (catmull-rom curves)
  *   4. Impact bars (Whoop-style, centre-divided, showing impact_percentage)
  *   5. Life-domain horizontal bars with deltas
  *   6. AI weekly insight card (headline + body)
@@ -15,16 +15,69 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '../components/ui/Card';
 import { getDashboardAnalytics, type DashboardAnalytics, type ImpactFactor } from '../api/analytics';
-import { scoreColor, scoreTextClass, colors } from '../theme';
+import { scoreTextClass, colors } from '../theme';
 import { LIFE_DIMENSIONS } from '../theme';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+/** Domain bar color: different thresholds from global scoreColor.
+ *  ≤3 → red, >3 to <6 → amber, ≥6 → green */
+function domainBarColor(score: number): string {
+  if (score >= 6) return colors.positive;
+  if (score > 3) return colors.amber;
+  return colors.negative;
 }
 
-// ── Trend Chart (SVG area) ───────────────────────────────────────
+/** Domain bar text class matching domainBarColor thresholds */
+function domainTextClass(score: number): string {
+  if (score >= 6) return 'text-journal-positive';
+  if (score > 3) return 'text-journal-amber';
+  return 'text-journal-negative';
+}
+
+// ── Catmull-Rom to Cubic Bezier conversion ───────────────────────
+
+/** Convert data points into a smooth SVG cubic bezier path string (Catmull-Rom). */
+function smoothLine(points: [number, number][]): string {
+  if (points.length < 2) return '';
+  if (points.length === 2) {
+    return `M ${points[0][0]},${points[0][1]} L ${points[1][0]},${points[1][1]}`;
+  }
+
+  const parts: string[] = [`M ${points[0][0]},${points[0][1]}`];
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+
+    const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+
+    parts.push(`C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2[0]},${p2[1]}`);
+  }
+
+  return parts.join(' ');
+}
+
+/** Like smoothLine but closes into an area fill at the bottom. */
+function smoothArea(
+  points: [number, number][],
+  bottomY: number,
+): string {
+  const line = smoothLine(points);
+  if (!line || points.length < 2) return '';
+  const lastX = points[points.length - 1][0];
+  const firstX = points[0][0];
+  return `${line} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
+}
+
+// ── Trend Chart (SVG smooth area) ────────────────────────────────
+
+const WARM_FILL = '#F5E6DD';
 
 function TrendChart({ scores }: { scores: Array<{ date: string; score: number }> }) {
   if (scores.length < 2) {
@@ -47,15 +100,11 @@ function TrendChart({ scores }: { scores: Array<{ date: string; score: number }>
   const xScale = (i: number) => pad.left + (i / (n - 1)) * innerW;
   const yScale = (v: number) => pad.top + innerH - ((v - 1) / 9) * innerH;
 
-  const linePoints = sorted.map((s, i) => `${xScale(i)},${yScale(s.score)}`).join(' ');
+  const points: [number, number][] = sorted.map((s, i) => [xScale(i), yScale(s.score)]);
+  const bottomY = pad.top + innerH;
 
-  const areaPath = [
-    `M ${xScale(0)},${yScale(sorted[0].score)}`,
-    ...sorted.slice(1).map((s, i) => `L ${xScale(i + 1)},${yScale(s.score)}`),
-    `L ${xScale(n - 1)},${pad.top + innerH}`,
-    `L ${xScale(0)},${pad.top + innerH}`,
-    'Z',
-  ].join(' ');
+  const linePath = smoothLine(points);
+  const areaPath = smoothArea(points, bottomY);
 
   const yTicks = [2, 4, 6, 8, 10];
 
@@ -68,19 +117,28 @@ function TrendChart({ scores }: { scores: Array<{ date: string; score: number }>
   if (n > 2) xLabels.push({ i: Math.floor(n / 2), label: fmtShort(sorted[Math.floor(n / 2)].date) });
   if (n > 1) xLabels.push({ i: n - 1, label: fmtShort(sorted[n - 1].date) });
 
+  const lastPt = points[n - 1];
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+      {/* Y-axis gridlines */}
       {yTicks.map((v) => (
         <line key={v} x1={pad.left} y1={yScale(v)} x2={W - pad.right} y2={yScale(v)} stroke={colors.borderLight} strokeWidth={0.5} />
       ))}
       {yTicks.map((v) => (
         <text key={v} x={pad.left - 6} y={yScale(v) + 3} textAnchor="end" fontSize="8" fill={colors.textMuted}>{v}</text>
       ))}
-      <path d={areaPath} fill={colors.positive} fillOpacity={0.12} />
-      <polyline points={linePoints} fill="none" stroke={colors.positive} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      {sorted.map((s, i) => (
-        <circle key={s.date} cx={xScale(i)} cy={yScale(s.score)} r={2.5} fill={scoreColor(s.score)} stroke="white" strokeWidth={1} />
-      ))}
+
+      {/* Area fill — warm peach */}
+      <path d={areaPath} fill={WARM_FILL} />
+
+      {/* Smooth line — olive green */}
+      <path d={linePath} fill="none" stroke={colors.positive} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+
+      {/* Single dot on rightmost point only */}
+      <circle cx={lastPt[0]} cy={lastPt[1]} r={3.5} fill={colors.positive} stroke="white" strokeWidth={1.5} />
+
+      {/* X-axis labels */}
       {xLabels.map(({ i, label }) => (
         <text key={i} x={xScale(i)} y={H - 4} textAnchor="middle" fontSize="8" fill={colors.textMuted}>{label}</text>
       ))}
@@ -156,7 +214,7 @@ function DomainBars({
             <div className="flex items-center justify-between mb-1">
               <span className="text-[12px] text-journal-text-secondary">{dim.shortLabel}</span>
               <div className="flex items-center gap-1.5">
-                <span className={`text-[12px] font-semibold ${scoreTextClass(score)}`}>
+                <span className={`text-[12px] font-semibold ${domainTextClass(score)}`}>
                   {score.toFixed(1)}
                 </span>
                 {delta !== null && delta !== 0 && (
@@ -171,7 +229,7 @@ function DomainBars({
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${Math.max(pct, 2)}%`,
-                  backgroundColor: scoreColor(score),
+                  backgroundColor: domainBarColor(score),
                 }}
               />
             </div>
@@ -212,7 +270,10 @@ export default function DashboardPage() {
   if (!data) {
     return (
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
-        <h1 className="text-xl font-bold text-journal-text">Dashboard</h1>
+        <div>
+          <p className="text-[13px] text-journal-text-muted">Your progress</p>
+          <h1 className="text-2xl font-bold text-journal-text">Dashboard</h1>
+        </div>
         <Card>
           <div className="text-center py-8">
             <p className="text-sm text-journal-text-muted">
@@ -225,63 +286,62 @@ export default function DashboardPage() {
   }
 
   const trendIcon = data.trend_direction === 'up' ? '↑' : data.trend_direction === 'down' ? '↓' : '→';
-  const trendColor = data.trend_direction === 'up'
-    ? 'text-journal-positive'
-    : data.trend_direction === 'down'
-      ? 'text-journal-negative'
-      : 'text-journal-amber';
 
   const hasDomains = Object.keys(data.current_domains).length > 0;
   const isEmpty = data.daily_scores.length === 0 && !hasDomains && data.impact_factors.length === 0;
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-6 pb-8 space-y-5">
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────── */}
       <div>
-        <p className="text-[11px] text-journal-text-muted uppercase tracking-wider">
-          {formatDate(new Date())}
-        </p>
-        <h1 className="text-xl font-bold text-journal-text mt-0.5">Dashboard</h1>
+        <p className="text-[13px] text-journal-text-muted">Your progress</p>
+        <h1 className="text-2xl font-bold text-journal-text">Dashboard</h1>
       </div>
 
-      {/* ── Headline Metrics ────────────────────────────────── */}
+      {/* ── Headline Metrics — color-block cards ─────────────── */}
       <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <div className="text-center">
-            <p className="text-[10px] uppercase tracking-wider text-journal-text-muted mb-1">Floor</p>
-            <p className={`text-2xl font-bold ${data.floor !== null ? scoreTextClass(data.floor) : 'text-journal-text-muted'}`}>
-              {data.floor !== null ? data.floor.toFixed(1) : '—'}
-            </p>
-            <p className="text-[10px] text-journal-text-muted mt-0.5">
-              {data.floor_start !== null ? `up from ${data.floor_start.toFixed(1)}` : '14-day low'}
-            </p>
-          </div>
-        </Card>
+        {/* Floor — terracotta bg */}
+        <div
+          className="rounded-card p-4 text-center"
+          style={{ backgroundColor: colors.accent }}
+        >
+          <p className="text-[10px] uppercase tracking-wider text-white/70 mb-1">Floor</p>
+          <p className="text-2xl font-bold text-white">
+            {data.floor !== null ? data.floor.toFixed(1) : '—'}
+          </p>
+          <p className="text-[10px] text-white/70 mt-0.5">
+            {data.floor_start !== null ? `up from ${data.floor_start.toFixed(1)}` : '14-day low'}
+          </p>
+        </div>
 
-        <Card>
-          <div className="text-center">
-            <p className="text-[10px] uppercase tracking-wider text-journal-text-muted mb-1">Trend</p>
-            <p className={`text-2xl font-bold ${data.trend_avg !== null ? trendColor : 'text-journal-text-muted'}`}>
-              {data.trend_avg !== null ? data.trend_avg.toFixed(1) : '—'}
-            </p>
-            <p className={`text-[10px] mt-0.5 ${data.trend_avg !== null ? trendColor : 'text-journal-text-muted'}`}>
-              {data.trend_avg !== null ? `${trendIcon} 7-day avg` : 'No data'}
-            </p>
-          </div>
-        </Card>
+        {/* Trend — olive bg */}
+        <div
+          className="rounded-card p-4 text-center"
+          style={{ backgroundColor: colors.positive }}
+        >
+          <p className="text-[10px] uppercase tracking-wider text-white/70 mb-1">Trend</p>
+          <p className="text-2xl font-bold text-white">
+            {data.trend_avg !== null ? data.trend_avg.toFixed(1) : '—'}
+          </p>
+          <p className="text-[10px] text-white/70 mt-0.5">
+            {data.trend_avg !== null ? `${trendIcon} 7-day avg` : 'No data'}
+          </p>
+        </div>
 
-        <Card>
-          <div className="text-center">
-            <p className="text-[10px] uppercase tracking-wider text-journal-text-muted mb-1">Streak</p>
-            <p className={`text-2xl font-bold ${data.best_streak > 0 ? 'text-journal-accent' : 'text-journal-text-muted'}`}>
-              {data.best_streak}
-            </p>
-            <p className="text-[10px] text-journal-text-muted mt-0.5">
-              {data.best_streak === 1 ? 'day' : 'days'}
-              {data.streak_threshold !== null ? ` above ${data.streak_threshold}` : ''}
-            </p>
-          </div>
-        </Card>
+        {/* Streak — white bg with border */}
+        <div
+          className="rounded-card p-4 text-center bg-journal-surface"
+          style={{ border: `1px solid ${colors.border}` }}
+        >
+          <p className="text-[10px] uppercase tracking-wider text-journal-text-muted mb-1">Streak</p>
+          <p className={`text-2xl font-bold ${data.best_streak > 0 ? 'text-journal-accent' : 'text-journal-text-muted'}`}>
+            {data.best_streak}
+          </p>
+          <p className="text-[10px] text-journal-text-muted mt-0.5">
+            {data.best_streak === 1 ? 'day' : 'days'}
+            {data.streak_threshold !== null ? ` above ${data.streak_threshold}` : ''}
+          </p>
+        </div>
       </div>
 
       {/* ── 30-Day Trend Chart ──────────────────────────────── */}

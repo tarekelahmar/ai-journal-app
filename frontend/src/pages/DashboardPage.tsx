@@ -6,8 +6,8 @@
  *
  * Sections (top → bottom):
  *   1. Header ("Your progress" / "Dashboard")
- *   2. Headline metrics row (Floor · Trend · Streak) — color-block cards
- *   3. 30-day SVG smooth area trend chart (catmull-rom curves)
+ *   2. Headline metrics row (Floor · Trend · Streak) — color-block cards, left-aligned
+ *   3. 30-day SVG smooth area trend chart (catmull-rom curves, terracotta)
  *   4. Impact bars (Whoop-style, centre-divided, showing impact_percentage)
  *   5. Life-domain horizontal bars with deltas
  *   6. AI weekly insight card (headline + body)
@@ -15,13 +15,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '../components/ui/Card';
 import { getDashboardAnalytics, type DashboardAnalytics, type ImpactFactor } from '../api/analytics';
-import { scoreTextClass, colors } from '../theme';
+import { colors } from '../theme';
 import { LIFE_DIMENSIONS } from '../theme';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-/** Domain bar color: different thresholds from global scoreColor.
- *  ≤3 → red, >3 to <6 → amber, ≥6 → green */
+/** Domain bar color: ≤3 → red, >3 to <6 → amber, ≥6 → green */
 function domainBarColor(score: number): string {
   if (score >= 6) return colors.positive;
   if (score > 3) return colors.amber;
@@ -35,15 +34,34 @@ function domainTextClass(score: number): string {
   return 'text-journal-negative';
 }
 
+// ── Data smoothing ──────────────────────────────────────────────
+
+/** 3-point weighted moving average to soften sharp peaks in the data. */
+function smoothData(
+  scores: Array<{ date: string; score: number }>,
+): Array<{ date: string; score: number }> {
+  if (scores.length <= 2) return scores;
+  return scores.map((s, i) => {
+    if (i === 0 || i === scores.length - 1) return s;
+    const smoothed =
+      scores[i - 1].score * 0.25 + s.score * 0.5 + scores[i + 1].score * 0.25;
+    return { ...s, score: smoothed };
+  });
+}
+
 // ── Catmull-Rom to Cubic Bezier conversion ───────────────────────
 
-/** Convert data points into a smooth SVG cubic bezier path string (Catmull-Rom). */
+/**
+ * Convert data points into a smooth SVG cubic bezier path (Catmull-Rom).
+ * Uses a relaxed divisor (4 instead of 6) for gentler, more flowing curves.
+ */
 function smoothLine(points: [number, number][]): string {
   if (points.length < 2) return '';
   if (points.length === 2) {
     return `M ${points[0][0]},${points[0][1]} L ${points[1][0]},${points[1][1]}`;
   }
 
+  const T = 4; // Relaxed tension divisor (standard = 6, lower = rounder curves)
   const parts: string[] = [`M ${points[0][0]},${points[0][1]}`];
 
   for (let i = 0; i < points.length - 1; i++) {
@@ -52,10 +70,10 @@ function smoothLine(points: [number, number][]): string {
     const p2 = points[i + 1];
     const p3 = points[Math.min(points.length - 1, i + 2)];
 
-    const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+    const cp1x = p1[0] + (p2[0] - p0[0]) / T;
+    const cp1y = p1[1] + (p2[1] - p0[1]) / T;
+    const cp2x = p2[0] - (p3[0] - p1[0]) / T;
+    const cp2y = p2[1] - (p3[1] - p1[1]) / T;
 
     parts.push(`C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2[0]},${p2[1]}`);
   }
@@ -90,17 +108,18 @@ function TrendChart({ scores }: { scores: Array<{ date: string; score: number }>
 
   const W = 320;
   const H = 120;
-  const pad = { top: 12, right: 8, bottom: 20, left: 28 };
+  const pad = { top: 12, right: 8, bottom: 20, left: 12 };
   const innerW = W - pad.left - pad.right;
   const innerH = H - pad.top - pad.bottom;
 
   const sorted = [...scores].sort((a, b) => a.date.localeCompare(b.date));
-  const n = sorted.length;
+  const smoothed = smoothData(sorted);
+  const n = smoothed.length;
 
   const xScale = (i: number) => pad.left + (i / (n - 1)) * innerW;
   const yScale = (v: number) => pad.top + innerH - ((v - 1) / 9) * innerH;
 
-  const points: [number, number][] = sorted.map((s, i) => [xScale(i), yScale(s.score)]);
+  const points: [number, number][] = smoothed.map((s, i) => [xScale(i), yScale(s.score)]);
   const bottomY = pad.top + innerH;
 
   const linePath = smoothLine(points);
@@ -108,40 +127,37 @@ function TrendChart({ scores }: { scores: Array<{ date: string; score: number }>
 
   const yTicks = [2, 4, 6, 8, 10];
 
-  const xLabels: { i: number; label: string }[] = [];
+  // X-axis: start date + "Today" only
   const fmtShort = (d: string) => {
     const dt = new Date(d + 'T00:00:00');
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
-  if (n > 0) xLabels.push({ i: 0, label: fmtShort(sorted[0].date) });
-  if (n > 2) xLabels.push({ i: Math.floor(n / 2), label: fmtShort(sorted[Math.floor(n / 2)].date) });
-  if (n > 1) xLabels.push({ i: n - 1, label: fmtShort(sorted[n - 1].date) });
 
   const lastPt = points[n - 1];
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
-      {/* Y-axis gridlines */}
+      {/* Faint horizontal gridlines (no labels) */}
       {yTicks.map((v) => (
         <line key={v} x1={pad.left} y1={yScale(v)} x2={W - pad.right} y2={yScale(v)} stroke={colors.borderLight} strokeWidth={0.5} />
-      ))}
-      {yTicks.map((v) => (
-        <text key={v} x={pad.left - 6} y={yScale(v) + 3} textAnchor="end" fontSize="8" fill={colors.textMuted}>{v}</text>
       ))}
 
       {/* Area fill — warm peach */}
       <path d={areaPath} fill={WARM_FILL} />
 
-      {/* Smooth line — olive green */}
-      <path d={linePath} fill="none" stroke={colors.positive} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      {/* Smooth line — terracotta */}
+      <path d={linePath} fill="none" stroke={colors.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
 
-      {/* Single dot on rightmost point only */}
-      <circle cx={lastPt[0]} cy={lastPt[1]} r={3.5} fill={colors.positive} stroke="white" strokeWidth={1.5} />
+      {/* Single dot on rightmost point — terracotta */}
+      <circle cx={lastPt[0]} cy={lastPt[1]} r={3.5} fill={colors.accent} stroke="white" strokeWidth={1.5} />
 
-      {/* X-axis labels */}
-      {xLabels.map(({ i, label }) => (
-        <text key={i} x={xScale(i)} y={H - 4} textAnchor="middle" fontSize="8" fill={colors.textMuted}>{label}</text>
-      ))}
+      {/* X-axis: start date (left) + "Today" (right) */}
+      <text x={xScale(0)} y={H - 4} textAnchor="start" fontSize="8" fill={colors.textMuted}>
+        {fmtShort(sorted[0].date)}
+      </text>
+      <text x={xScale(n - 1)} y={H - 4} textAnchor="end" fontSize="8" fill={colors.textMuted}>
+        Today
+      </text>
     </svg>
   );
 }
@@ -240,6 +256,20 @@ function DomainBars({
   );
 }
 
+// ── Trend direction helpers ─────────────────────────────────────
+
+function trendArrow(dir: string): string {
+  if (dir === 'up') return '↑';
+  if (dir === 'down') return '↓';
+  return '→';
+}
+
+function trendWord(dir: string): string {
+  if (dir === 'up') return 'Climbing';
+  if (dir === 'down') return 'Sliding';
+  return 'Stable';
+}
+
 // ── Main Component ───────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -285,8 +315,6 @@ export default function DashboardPage() {
     );
   }
 
-  const trendIcon = data.trend_direction === 'up' ? '↑' : data.trend_direction === 'down' ? '↓' : '→';
-
   const hasDomains = Object.keys(data.current_domains).length > 0;
   const isEmpty = data.daily_scores.length === 0 && !hasDomains && data.impact_factors.length === 0;
 
@@ -298,11 +326,11 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-journal-text">Dashboard</h1>
       </div>
 
-      {/* ── Headline Metrics — color-block cards ─────────────── */}
+      {/* ── Headline Metrics — color-block cards, left-aligned ── */}
       <div className="grid grid-cols-3 gap-3">
-        {/* Floor — terracotta bg */}
+        {/* Floor — terracotta bg, left-aligned */}
         <div
-          className="rounded-card p-4 text-center"
+          className="rounded-card p-4"
           style={{ backgroundColor: colors.accent }}
         >
           <p className="text-[10px] uppercase tracking-wider text-white/70 mb-1">Floor</p>
@@ -314,23 +342,28 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Trend — olive bg */}
+        {/* Trend — olive bg, left-aligned, arrow + word */}
         <div
-          className="rounded-card p-4 text-center"
+          className="rounded-card p-4"
           style={{ backgroundColor: colors.positive }}
         >
           <p className="text-[10px] uppercase tracking-wider text-white/70 mb-1">Trend</p>
-          <p className="text-2xl font-bold text-white">
-            {data.trend_avg !== null ? data.trend_avg.toFixed(1) : '—'}
+          <p className="text-[30px] font-bold text-white leading-none">
+            {trendArrow(data.trend_direction)}
           </p>
-          <p className="text-[10px] text-white/70 mt-0.5">
-            {data.trend_avg !== null ? `${trendIcon} 7-day avg` : 'No data'}
+          <p className="text-[11px] font-medium text-white/90 mt-1">
+            {trendWord(data.trend_direction)}
           </p>
+          {data.trend_avg !== null && (
+            <p className="text-[9px] text-white/60 mt-0.5">
+              7-day avg: {data.trend_avg.toFixed(1)}
+            </p>
+          )}
         </div>
 
-        {/* Streak — white bg with border */}
+        {/* Streak — white bg with border, left-aligned */}
         <div
-          className="rounded-card p-4 text-center bg-journal-surface"
+          className="rounded-card p-4 bg-journal-surface"
           style={{ border: `1px solid ${colors.border}` }}
         >
           <p className="text-[10px] uppercase tracking-wider text-journal-text-muted mb-1">Streak</p>

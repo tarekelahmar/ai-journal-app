@@ -193,13 +193,13 @@ def _compute_trend(scores: List[dict]) -> tuple:
 
 def _compute_streak(scores: List[dict]) -> tuple:
     """
-    Compute current streak: consecutive scored days (from most recent
-    scored day backwards) with score above personal median.
+    Compute best streak: longest run of consecutive days with score
+    above the personal median, across all available data.
 
-    Starts from the latest entry, NOT from today — so users who haven't
-    logged today still see their active streak.
+    Returns the best historical streak (not just the current one),
+    so a low score today doesn't erase a strong prior run.
 
-    Returns (streak_length, threshold).
+    Returns (best_streak_length, threshold).
     """
     if not scores:
         return 0, None
@@ -207,29 +207,31 @@ def _compute_streak(scores: List[dict]) -> tuple:
     all_vals = [s["score"] for s in scores]
     median = sorted(all_vals)[len(all_vals) // 2]
 
-    # Sort newest-first
-    sorted_scores = sorted(scores, key=lambda s: s["date"], reverse=True)
+    # Sort oldest-first for forward scanning
+    sorted_scores = sorted(scores, key=lambda s: s["date"])
 
-    # Start from the most recent scored day and walk backwards
-    streak = 0
-    for i, s in enumerate(sorted_scores):
-        if i == 0:
-            # First entry: just check if score is above median
-            if s["score"] >= median:
-                streak = 1
-                prev_date = date.fromisoformat(s["date"])
+    best = 0
+    current = 0
+    prev_date: Optional[date] = None
+
+    for s in sorted_scores:
+        d = date.fromisoformat(s["date"])
+        above = s["score"] >= median
+
+        if above:
+            if prev_date is not None and (d - prev_date) == timedelta(days=1):
+                # Consecutive day above threshold
+                current += 1
             else:
-                break
+                # Start a new streak
+                current = 1
+            prev_date = d
+            best = max(best, current)
         else:
-            current_date = date.fromisoformat(s["date"])
-            # Must be exactly 1 day before the previous entry
-            if prev_date - current_date == timedelta(days=1) and s["score"] >= median:
-                streak += 1
-                prev_date = current_date
-            else:
-                break
+            current = 0
+            prev_date = None
 
-    return streak, round(median, 1)
+    return best, round(median, 1)
 
 
 def _get_impact_factors(db: Session, user_id: int) -> List[ImpactFactorResponse]:

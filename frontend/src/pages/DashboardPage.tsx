@@ -24,7 +24,22 @@ function domainBarColor(score: number): string {
   return colors.negative;
 }
 
-// ── Trend Chart (SVG, straight lines) ────────────────────────────
+// ── Data smoothing ──────────────────────────────────────────────
+
+/** 3-day weighted rolling average to soften daily noise. */
+function smoothScores(
+  raw: Array<{ date: string; score: number }>,
+): Array<{ date: string; score: number }> {
+  if (raw.length <= 2) return raw;
+  return raw.map((s, i) => {
+    if (i === 0 || i === raw.length - 1) return s;
+    const smoothed =
+      raw[i - 1].score * 0.25 + s.score * 0.5 + raw[i + 1].score * 0.25;
+    return { ...s, score: smoothed };
+  });
+}
+
+// ── Trend Chart (SVG, straight lines on smoothed data) ───────────
 
 const WARM_FILL = '#F5E6DD';
 
@@ -44,12 +59,13 @@ function TrendChart({ scores }: { scores: Array<{ date: string; score: number }>
   const innerH = H - pad.top - pad.bottom;
 
   const sorted = [...scores].sort((a, b) => a.date.localeCompare(b.date));
-  const n = sorted.length;
+  const smoothed = smoothScores(sorted);
+  const n = smoothed.length;
 
   const xScale = (i: number) => pad.left + (i / (n - 1)) * innerW;
   const yScale = (v: number) => pad.top + innerH - ((v - 1) / 9) * innerH;
 
-  const points: [number, number][] = sorted.map((s, i) => [xScale(i), yScale(s.score)]);
+  const points: [number, number][] = smoothed.map((s, i) => [xScale(i), yScale(s.score)]);
   const bottomY = pad.top + innerH;
 
   // Straight-line path (L commands)
@@ -401,13 +417,13 @@ export default function DashboardPage() {
       {/* ── Weekly Insight ──────────────────────────────────── */}
       {data.weekly_insight && (
         <Card variant="muted">
-          <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-accent mb-2">
-            Weekly Insight
+          <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-secondary mb-3">
+            This Week
           </p>
-          <p className="text-[14px] font-semibold text-journal-text mb-1.5">
+          <p className="text-[17px] font-bold text-journal-text leading-snug mb-2">
             {data.weekly_insight.headline}
           </p>
-          <p className="text-[13px] text-journal-text leading-relaxed whitespace-pre-line">
+          <p className="text-[13px] text-journal-text-secondary leading-relaxed whitespace-pre-line">
             {data.weekly_insight.body}
           </p>
         </Card>

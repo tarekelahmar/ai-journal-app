@@ -2,10 +2,10 @@
  * Actions List Screen — Track 3c Task 2
  *
  * Sections:
- *   1. Header
+ *   1. Header ("Your commitments" / "Actions")
  *   2. Summary cards row (Habits · To complete · Done)
- *   3. Habits section — consistency bars, score impact, 3px positive left border
- *   4. Completables section — status badges (overdue / in-progress / not-started)
+ *   3. Habits section — HABIT badge, score impact, consistency bars, 3px olive left border
+ *   4. Completables section — status badges, "Since" date, 3px status-coloured left border
  *   5. Completed section — collapsible
  *
  * Each action card navigates to /actions/:id
@@ -15,7 +15,6 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { listActions, getHabitLogs } from '../api/actions';
 import type { Action, HabitLog } from '../types/Action';
-import { scoreTextClass } from '../theme';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -48,15 +47,29 @@ function daysSince(dateStr: string): number {
   return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function statusBadge(action: Action): { label: string; className: string } {
+/** Format date as "Feb 24" */
+function fmtShortDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** Completable left-border colour based on status/age */
+function completableBorderColor(action: Action): string {
+  const days = daysSince(action.created_at);
+  if (days > 14) return '#C47A6B'; // overdue — clay red
+  if (days > 3) return '#C4704B';  // in progress — terracotta
+  return '#E8E3DC';                // not started — neutral
+}
+
+function statusBadge(action: Action): { label: string; bg: string; text: string } {
   const days = daysSince(action.created_at);
   if (days > 14) {
-    return { label: 'Overdue', className: 'bg-journal-negative-light text-journal-negative' };
+    return { label: 'OVERDUE', bg: '#F5E6E2', text: '#C47A6B' };
   }
   if (days > 3) {
-    return { label: 'In progress', className: 'bg-journal-amber-light text-journal-amber' };
+    return { label: 'IN PROGRESS', bg: '#F5E6DD', text: '#C4704B' };
   }
-  return { label: 'Not started', className: 'bg-journal-surface-alt text-journal-text-muted' };
+  return { label: 'NOT STARTED', bg: '#F3F0EB', text: '#8C8278' };
 }
 
 // ── Summary Cards ────────────────────────────────────────────────
@@ -99,41 +112,73 @@ function SummaryCards({
 function HabitRow({
   action,
   consistency,
+  completedDays,
+  totalDays,
   onClick,
 }: {
   action: Action;
   consistency: number; // 0-100
+  completedDays: number;
+  totalDays: number;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left rounded-card bg-white p-3.5 border-l-[3px] border-journal-positive"
+      className="w-full text-left rounded-card bg-white p-3.5"
+      style={{ borderLeft: '3px solid #7A8F6B' }}
     >
-      <div className="flex items-center justify-between gap-3">
+      {/* Title row + score impact */}
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-journal-text leading-snug truncate">
+          <p className="text-[13px] font-semibold text-journal-text leading-snug">
             {action.title}
           </p>
-          <p className="text-[11px] text-journal-text-muted mt-0.5">
-            {domainLabel(action.primary_domain)}
-            {action.primary_domain ? ' · ' : ''}
-            {sourceLabel(action.source)}
-          </p>
+          <div className="flex items-center gap-1.5 mt-1">
+            {/* HABIT badge */}
+            <span
+              className="text-[10px] font-semibold uppercase shrink-0"
+              style={{
+                backgroundColor: '#E8EDE4',
+                color: '#7A8F6B',
+                padding: '2px 7px',
+                borderRadius: 6,
+                letterSpacing: '0.3px',
+              }}
+            >
+              Habit
+            </span>
+            <span className="text-[11px] text-journal-text-muted">
+              {domainLabel(action.primary_domain)}
+              {action.primary_domain ? ' · ' : ''}
+              {sourceLabel(action.source)}
+            </span>
+          </div>
         </div>
+        {/* Score impact */}
         <div className="shrink-0 text-right">
-          <p className={`text-[13px] font-semibold ${scoreTextClass(consistency / 10)}`}>
-            {consistency}%
-          </p>
-          <p className="text-[10px] text-journal-text-muted">consistency</p>
+          <p className="text-[16px] font-bold text-journal-positive">—</p>
+          <p className="text-[10px] text-journal-text-muted">score lift</p>
         </div>
       </div>
-      {/* Consistency bar */}
-      <div className="mt-2 h-1.5 bg-journal-surface-alt rounded-full overflow-hidden">
-        <div
-          className="h-full bg-journal-positive rounded-full transition-all duration-500"
-          style={{ width: `${Math.max(consistency, 2)}%` }}
-        />
+
+      {/* Consistency section — separated by line */}
+      <div
+        className="mt-3 pt-2.5"
+        style={{ borderTop: '1px solid #E8E3DC' }}
+      >
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[11px] text-journal-text-secondary">Consistency</span>
+          <span className="text-[11px] font-semibold text-journal-text">
+            {consistency}% · {completedDays} of {totalDays} days
+          </span>
+        </div>
+        <div className="h-2 bg-journal-surface-alt rounded-full overflow-hidden">
+          <div
+            className="h-full bg-journal-positive rounded-full transition-all duration-500"
+            style={{ width: `${Math.max(consistency, 2)}%` }}
+          />
+        </div>
       </div>
     </button>
   );
@@ -151,21 +196,25 @@ function CompletableRow({
   onClick: () => void;
 }) {
   const badge = statusBadge(action);
+  const borderColor = completableBorderColor(action);
 
   return (
     <button
       onClick={onClick}
       className="w-full text-left rounded-card bg-white p-3.5"
+      style={{ borderLeft: `3px solid ${borderColor}` }}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-journal-text leading-snug truncate">
+          <p className="text-[13px] font-semibold text-journal-text leading-snug">
             {action.title}
           </p>
           <p className="text-[11px] text-journal-text-muted mt-0.5">
             {domainLabel(action.primary_domain)}
             {action.primary_domain ? ' · ' : ''}
             {sourceLabel(action.source)}
+            {' · Since '}
+            {fmtShortDate(action.created_at)}
           </p>
         </div>
         <div className="shrink-0 flex items-center gap-2">
@@ -174,7 +223,16 @@ function CompletableRow({
               {milestoneCount} milestone{milestoneCount !== 1 ? 's' : ''}
             </span>
           )}
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${badge.className}`}>
+          <span
+            className="text-[10px] font-semibold uppercase shrink-0"
+            style={{
+              backgroundColor: badge.bg,
+              color: badge.text,
+              padding: '2px 7px',
+              borderRadius: 6,
+              letterSpacing: '0.3px',
+            }}
+          >
             {badge.label}
           </span>
         </div>
@@ -254,11 +312,11 @@ export default function ActionsPage() {
     return { activeHabits, activeCompletables, completed };
   }, [actions]);
 
-  // Compute consistency % for a habit (completed days / 30)
-  const getConsistency = (actionId: number): number => {
+  // Compute consistency for a habit
+  const totalDays = 30;
+  const getCompletedDays = (actionId: number): number => {
     const logs = habitLogs[actionId] || [];
-    const completedDays = logs.filter((l) => l.completed).length;
-    return Math.round((completedDays / 30) * 100);
+    return logs.filter((l) => l.completed).length;
   };
 
   if (loading) {
@@ -274,7 +332,10 @@ export default function ActionsPage() {
   return (
     <div className="flex-1 overflow-y-auto px-4 py-6 pb-8 space-y-5">
       {/* Header */}
-      <h1 className="text-xl font-bold text-journal-text">Actions</h1>
+      <div>
+        <p className="text-[13px] text-journal-text-muted">Your commitments</p>
+        <h1 className="text-2xl font-bold text-journal-text">Actions</h1>
+      </div>
 
       {/* Empty state */}
       {isEmpty && (
@@ -302,18 +363,24 @@ export default function ActionsPage() {
           {/* ── Habits Section ──────────────────────────────── */}
           {activeHabits.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-muted mb-2.5">
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-secondary mb-2.5">
                 Habits
               </p>
               <div className="space-y-2">
-                {activeHabits.map((action) => (
-                  <HabitRow
-                    key={action.id}
-                    action={action}
-                    consistency={getConsistency(action.id)}
-                    onClick={() => navigate(`/actions/${action.id}`)}
-                  />
-                ))}
+                {activeHabits.map((action) => {
+                  const days = getCompletedDays(action.id);
+                  const pct = Math.round((days / totalDays) * 100);
+                  return (
+                    <HabitRow
+                      key={action.id}
+                      action={action}
+                      consistency={pct}
+                      completedDays={days}
+                      totalDays={totalDays}
+                      onClick={() => navigate(`/actions/${action.id}`)}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
@@ -321,7 +388,7 @@ export default function ActionsPage() {
           {/* ── Completables Section ────────────────────────── */}
           {activeCompletables.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-muted mb-2.5">
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-secondary mb-2.5">
                 To Complete
               </p>
               <div className="space-y-2">

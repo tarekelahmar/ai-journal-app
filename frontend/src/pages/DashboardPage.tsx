@@ -4,7 +4,7 @@
  * Sections (top → bottom):
  *   1. Header ("Your progress" / "Dashboard")
  *   2. Headline metrics row (Floor · Trend · Streak) — square color-block cards
- *   3. 30-day SVG area trend chart (straight lines, olive green)
+ *   3. 30-day SVG area trend chart (straight lines, terracotta)
  *   4. Impact bars (Whoop-style, centre-divided, HURTS/HELPS header)
  *   5. Life-domain horizontal bars with deltas
  *   6. AI weekly insight card (headline + body)
@@ -83,11 +83,11 @@ function TrendChart({ scores }: { scores: Array<{ date: string; score: number }>
       {/* Area fill — warm peach */}
       <path d={areaPath} fill={WARM_FILL} />
 
-      {/* Straight line — olive green */}
-      <path d={linePath} fill="none" stroke={colors.positive} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      {/* Straight line — terracotta */}
+      <path d={linePath} fill="none" stroke={colors.accent} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
 
-      {/* Single dot on rightmost point */}
-      <circle cx={lastPt[0]} cy={lastPt[1]} r={3.5} fill={colors.positive} stroke="white" strokeWidth={1.5} />
+      {/* Single dot on rightmost point — terracotta */}
+      <circle cx={lastPt[0]} cy={lastPt[1]} r={3.5} fill={colors.accent} stroke="white" strokeWidth={1.5} />
 
       {/* X-axis: start date (left) + "Today" (right) */}
       <text x={xScale(0)} y={H - 4} textAnchor="start" fontSize="8" fill={colors.textMuted}>
@@ -209,8 +209,8 @@ function DomainBars({
               {dim.shortLabel}
             </span>
 
-            {/* Bar — takes remaining space */}
-            <div className="flex-1 h-2 bg-journal-surface-alt rounded-full overflow-hidden min-w-0">
+            {/* Bar — takes remaining space, matches impact bar thickness */}
+            <div className="flex-1 h-2.5 bg-journal-surface-alt rounded-full overflow-hidden min-w-0">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{

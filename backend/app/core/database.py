@@ -64,6 +64,7 @@ def init_db():
     from app.domain.models.action import Action  # noqa: F401
     from app.domain.models.action_milestone import ActionMilestone  # noqa: F401
     from app.domain.models.habit_log import HabitLog  # noqa: F401
+    from app.domain.models.suggestion_dismissal import SuggestionDismissal  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
 

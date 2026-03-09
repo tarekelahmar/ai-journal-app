@@ -49,8 +49,8 @@ const ICON_MAP: Record<string, React.FC> = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { key: 'journal', label: 'Journal', path: '/journal' },
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard' },
+  { key: 'journal', label: 'Journal', path: '/journal' },
   { key: 'actions', label: 'Actions', path: '/actions' },
   { key: 'profile', label: 'Profile', path: '/profile' },
 ];

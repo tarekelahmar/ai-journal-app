@@ -79,6 +79,29 @@ export async function deleteMilestone(actionId: number, milestoneId: number): Pr
   await apiClient.delete(`/actions/${actionId}/milestones/${milestoneId}`);
 }
 
+// ── Domain Suggestions ──────────────────────────────────────────
+
+export interface DomainSuggestion {
+  domain: string;
+  domain_label: string;
+  score_current: number;
+  score_previous: number;
+  decline: number;
+  mention_count: number;
+  suggested_action: string;
+  suggested_type: 'habit' | 'completable';
+  evidence_text: string;
+}
+
+export async function getDomainSuggestion(): Promise<DomainSuggestion | null> {
+  const res = await apiClient.get('/actions/suggestion');
+  return res.data || null;
+}
+
+export async function dismissSuggestion(domain: string): Promise<void> {
+  await apiClient.post('/actions/suggestion/dismiss', { domain });
+}
+
 // ── Habit Logs ──────────────────────────────────────────────────
 
 export async function logHabit(

@@ -40,6 +40,7 @@ from app.domain.models.habit_log import HabitLog
 from app.domain.models.personal_pattern import PersonalPattern
 from app.domain.models.milestone import Milestone
 from app.domain.models.audit_event import AuditEvent
+from app.domain.models.suggestion_dismissal import SuggestionDismissal
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -536,6 +537,7 @@ def clear_existing(db):
         ("domain_checkins", "user_id = :uid"),
         ("journal_messages", "user_id = :uid"),
         ("journal_sessions", "user_id = :uid"),
+        ("suggestion_dismissals", "user_id = :uid"),
         ("actions", "user_id = :uid"),
         ("daily_checkins", "user_id = :uid"),
         ("life_domain_scores", "user_id = :uid"),
@@ -805,23 +807,44 @@ def seed_actions(db):
 
 
 def seed_action_milestones(db, actions: list[Action]):
-    """Create milestones for completable actions."""
-    james_action = actions[2]   # "Have the scope conversation with James"
+    """Create milestones for completable actions only. Habits get none."""
+    james_action = actions[2]     # "Have the scope conversation with James"
+    finance_action = actions[3]   # "Review last month's spending"
     referral_action = actions[4]  # "Submit therapist insurance referral"
 
     count = 0
 
-    # James: one milestone, not completed
-    db.add(ActionMilestone(
-        action_id=james_action.id,
-        title="Have the conversation",
-        is_completed=False,
-        sort_order=0,
-        created_at=dt(day(14), 21, 30),
-    ))
-    count += 1
+    # James: 3 milestones, all incomplete (avoidance pattern)
+    for title, order in [
+        ("Prepare key points", 0),
+        ("Schedule the meeting", 1),
+        ("Have the conversation", 2),
+    ]:
+        db.add(ActionMilestone(
+            action_id=james_action.id,
+            title=title,
+            is_completed=False,
+            sort_order=order,
+            created_at=dt(day(14), 21, 30),
+        ))
+        count += 1
 
-    # Referral: 3 milestones, all completed
+    # Finance review: 3 milestones, all incomplete
+    for title, order in [
+        ("Download bank statements", 0),
+        ("Categorise spending", 1),
+        ("Identify cuts", 2),
+    ]:
+        db.add(ActionMilestone(
+            action_id=finance_action.id,
+            title=title,
+            is_completed=False,
+            sort_order=order,
+            created_at=dt(day(26), 21, 30),
+        ))
+        count += 1
+
+    # Referral: 3 milestones, all completed (action is completed)
     db.add(ActionMilestone(
         action_id=referral_action.id,
         title="Call insurance company",

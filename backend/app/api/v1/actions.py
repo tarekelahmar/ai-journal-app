@@ -1,11 +1,13 @@
 """
-Actions API — CRUD for actions, milestones, and habit logs.
+Actions API — CRUD for actions, milestones, habit logs, and domain suggestions.
 
 Framework alignment (March 2026): Actions link to 7 life dimensions.
 
 Endpoints:
 - POST   /api/v1/actions                              — create action
 - GET    /api/v1/actions                              — list user actions
+- GET    /api/v1/actions/suggestion                   — get domain-based suggestion
+- POST   /api/v1/actions/suggestion/dismiss           — dismiss a suggestion
 - GET    /api/v1/actions/{action_id}                  — get single action
 - PATCH  /api/v1/actions/{action_id}                  — update action
 - DELETE /api/v1/actions/{action_id}                  — delete action
@@ -19,9 +21,13 @@ Endpoints:
 
 from __future__ import annotations
 
+import logging
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import Depends, HTTPException, Query
+from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -32,9 +38,12 @@ from app.api.schemas.actions import (
     ActionMilestoneCreate, ActionMilestoneResponse,
     HabitLogCreate, HabitLogResponse,
 )
+
 from app.domain.repositories.action_repository import ActionRepository
 from app.domain.repositories.action_milestone_repository import ActionMilestoneRepository
 from app.domain.repositories.habit_log_repository import HabitLogRepository
+
+logger = logging.getLogger(__name__)
 
 router = make_v1_router(prefix="/api/v1/actions", tags=["actions"])
 
@@ -48,7 +57,7 @@ def create_action(
     db: Session = Depends(get_db),
 ):
     repo = ActionRepository(db)
-    return repo.create(
+    action = repo.create(
         user_id=user_id,
         title=body.title,
         description=body.description,
@@ -58,6 +67,25 @@ def create_action(
         target_frequency=body.target_frequency,
         difficulty=body.difficulty,
     )
+
+    # Auto-generate milestones for completable actions
+    if action.action_type == "completable":
+        try:
+            from app.engine.milestone_generator import generate_milestones_for_action
+
+            journal_context = _get_journal_context(db, user_id, action.title)
+            generate_milestones_for_action(
+                db=db,
+                action_id=action.id,
+                user_id=user_id,
+                action_title=action.title,
+                action_type=action.action_type,
+                journal_context=journal_context,
+            )
+        except Exception as e:
+            logger.error(f"Milestone generation failed (non-fatal): {e}")
+
+    return action
 
 
 @router.get("", response_model=List[ActionResponse])
@@ -69,6 +97,40 @@ def list_actions(
 ):
     repo = ActionRepository(db)
     return repo.list_by_user(user_id, status=status, domain=domain)
+
+
+# ── Domain Suggestion ────────────────────────────────────────────
+
+
+@router.get("/suggestion")
+def get_suggestion(
+    user_id: int = Depends(get_request_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get a single domain-based action suggestion, or null."""
+    from app.engine.domain_suggestion import get_domain_suggestion
+
+    result = get_domain_suggestion(db, user_id)
+    return result
+
+
+class DismissBody(BaseModel):
+    domain: str
+
+
+@router.post("/suggestion/dismiss")
+def dismiss_suggestion(
+    body: DismissBody,
+    user_id: int = Depends(get_request_user_id),
+    db: Session = Depends(get_db),
+):
+    """Dismiss a domain suggestion for 14 days."""
+    from app.domain.models.suggestion_dismissal import SuggestionDismissal
+
+    dismissal = SuggestionDismissal(user_id=user_id, domain=body.domain)
+    db.add(dismissal)
+    db.commit()
+    return {"dismissed": True}
 
 
 @router.get("/{action_id}", response_model=ActionResponse)
@@ -231,3 +293,38 @@ def get_habit_logs(
 
     repo = HabitLogRepository(db)
     return repo.get_logs(action_id=action_id, start_date=start_date, end_date=end_date)
+
+
+# ── Helpers ──────────────────────────────────────────────────────
+
+def _get_journal_context(db: Session, user_id: int, action_title: str) -> str:
+    """Get recent journal messages mentioning keywords from the action title."""
+    from app.domain.models.journal_message import JournalMessage
+
+    # Extract meaningful keywords from the action title
+    stop_words = {
+        "the", "a", "an", "to", "with", "for", "my", "on", "in",
+        "and", "or", "of", "this", "that", "have", "last", "one",
+    }
+    words = [w for w in action_title.lower().split() if w not in stop_words and len(w) > 2]
+
+    if not words:
+        return ""
+
+    # Search recent user messages for any of these keywords
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
+    messages = (
+        db.query(JournalMessage)
+        .filter(
+            JournalMessage.user_id == user_id,
+            JournalMessage.role == "user",
+            JournalMessage.created_at >= thirty_days_ago,
+            or_(*[JournalMessage.content.ilike(f"%{w}%") for w in words[:3]]),
+        )
+        .order_by(JournalMessage.created_at.desc())
+        .limit(3)
+        .all()
+    )
+
+    return " ".join([m.content for m in messages])[:500]

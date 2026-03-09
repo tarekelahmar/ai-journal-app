@@ -26,7 +26,7 @@ function domainLabel(domain: string): string {
 }
 
 function typeLabel(type: string): string {
-  return type === 'habit' ? 'Habit' : 'Completable';
+  return type === 'habit' ? 'Ongoing' : 'Action';
 }
 
 export function ActionExtractionCard({ actions }: ActionExtractionCardProps) {

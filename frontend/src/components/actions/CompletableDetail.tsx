@@ -10,7 +10,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Card } from '../ui/Card';
-import { listMilestones, toggleMilestone, updateAction } from '../../api/actions';
+import { listMilestones, toggleMilestone, createMilestone, deleteMilestone, updateAction } from '../../api/actions';
 import { getSessions } from '../../api/journalChat';
 import type { Action, ActionMilestone } from '../../types/Action';
 import type { SessionSummary } from '../../types/JournalChat';
@@ -56,11 +56,13 @@ function StatusCard({
   action,
   mentionCount,
   onMarkDone,
+  onReopen,
   marking,
 }: {
   action: Action;
   mentionCount: number;
   onMarkDone: () => void;
+  onReopen: () => void;
   marking: boolean;
 }) {
   const days = daysSince(action.created_at);
@@ -95,7 +97,13 @@ function StatusCard({
           </button>
         )}
         {isCompleted && (
-          <span className="text-xl text-journal-positive">✓</span>
+          <button
+            onClick={onReopen}
+            disabled={marking}
+            className="shrink-0 text-[12px] font-medium px-4 py-1.5 rounded-full border border-journal-accent text-journal-accent bg-transparent hover:bg-journal-accent-light transition-colors disabled:opacity-50"
+          >
+            {marking ? '...' : 'Reopen'}
+          </button>
         )}
       </div>
     </Card>
@@ -108,60 +116,149 @@ function MilestonesList({
   milestones,
   actionId,
   onToggle,
+  onAdd,
+  onDelete,
+  isCompleted,
 }: {
   milestones: ActionMilestone[];
   actionId: number;
   onToggle: (ms: ActionMilestone) => void;
+  onAdd: (title: string) => void;
+  onDelete: (ms: ActionMilestone) => void;
+  isCompleted: boolean;
 }) {
-  if (milestones.length === 0) return null;
+  const [newTitle, setNewTitle] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const handleAdd = async () => {
+    const trimmed = newTitle.trim();
+    if (!trimmed || adding) return;
+    setAdding(true);
+    try {
+      onAdd(trimmed);
+      setNewTitle('');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAdd();
+    }
+  };
+
+  if (milestones.length === 0 && isCompleted) return null;
 
   return (
     <Card>
-      <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-muted mb-3">
-        Milestones
+      <p className="text-[14px] font-bold text-journal-text mb-4">
+        Progress
       </p>
       <div className="relative ml-3">
-        {/* Vertical connecting line */}
-        <div className="absolute left-[5px] top-1 bottom-1 w-px bg-journal-border" />
+        {milestones.map((ms, idx) => {
+          const isLast = idx === milestones.length - 1;
+          return (
+            <div key={ms.id} className="relative flex items-start gap-4 group">
+              {/* Vertical connecting line (between this dot and the next) */}
+              {!isLast && (
+                <div
+                  className="absolute w-[3px] rounded-full"
+                  style={{
+                    left: 10,
+                    top: 26,
+                    bottom: -8,
+                    backgroundColor: ms.is_completed ? '#7A8F6B' : '#E8E3DC',
+                  }}
+                />
+              )}
 
-        <div className="space-y-3">
-          {milestones.map((ms) => (
-            <button
-              key={ms.id}
-              onClick={() => onToggle(ms)}
-              className="flex items-start gap-3 w-full text-left group"
-            >
-              {/* Dot */}
-              <div className={`relative z-10 mt-0.5 w-[11px] h-[11px] rounded-full border-2 shrink-0 transition-colors ${
-                ms.is_completed
-                  ? 'bg-journal-positive border-journal-positive'
-                  : 'bg-white border-journal-border group-hover:border-journal-accent'
-              }`}>
-                {ms.is_completed && (
-                  <svg className="w-full h-full text-white" viewBox="0 0 12 12">
-                    <path d="M3 6l2 2 4-4" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
-                  </svg>
+              {/* Dot — bullseye for completed, empty circle for pending */}
+              <button
+                onClick={() => onToggle(ms)}
+                className="shrink-0 relative z-10 flex items-center justify-center"
+                style={{ width: 24, height: 24, marginTop: 1 }}
+              >
+                {ms.is_completed ? (
+                  <div
+                    className="flex items-center justify-center rounded-full"
+                    style={{
+                      width: 24,
+                      height: 24,
+                      backgroundColor: '#E8EDE4',
+                    }}
+                  >
+                    <div
+                      className="rounded-full"
+                      style={{
+                        width: 12,
+                        height: 12,
+                        backgroundColor: '#7A8F6B',
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="rounded-full transition-colors"
+                    style={{
+                      width: 24,
+                      height: 24,
+                      border: '2.5px solid #D4CFC8',
+                      backgroundColor: '#FFFFFF',
+                    }}
+                  />
                 )}
-              </div>
+              </button>
+
               {/* Text */}
-              <div className="flex-1 min-w-0">
-                <p className={`text-[13px] leading-snug ${
+              <div className="flex-1 min-w-0 pb-6">
+                <p className={`text-[15px] font-semibold leading-snug ${
                   ms.is_completed
-                    ? 'text-journal-text-secondary line-through'
+                    ? 'text-journal-text-secondary'
                     : 'text-journal-text'
                 }`}>
                   {ms.title}
                 </p>
-                {ms.completed_at && (
-                  <p className="text-[10px] text-journal-text-muted mt-0.5">
-                    {new Date(ms.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </p>
-                )}
+                <p className="text-[12px] mt-0.5" style={{ color: ms.is_completed ? '#7A8F6B' : '#9B9B9B' }}>
+                  {ms.is_completed && ms.completed_at
+                    ? new Date(ms.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : 'Pending'}
+                </p>
               </div>
-            </button>
-          ))}
-        </div>
+
+              {/* Delete button (hover) */}
+              {!isCompleted && (
+                <button
+                  onClick={() => onDelete(ms)}
+                  className="shrink-0 text-[11px] text-journal-text-muted opacity-0 group-hover:opacity-100 transition-opacity px-1 mt-1"
+                  title="Remove milestone"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {/* Add milestone input */}
+      {!isCompleted && (
+        <div
+          className="mt-1 pt-3 flex items-center gap-2"
+          style={{ borderTop: milestones.length > 0 ? '1px solid #E8E3DC' : 'none' }}
+        >
+          <span className="text-journal-text-muted text-[13px] ml-3">+</span>
+          <input
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Add a milestone..."
+            className="flex-1 text-[13px] bg-transparent outline-none placeholder:text-journal-text-muted text-journal-text"
+          />
+        </div>
+      )}
     </Card>
   );
 }
@@ -250,6 +347,18 @@ export function CompletableDetail({ action, onStatusChange }: CompletableDetailP
     }
   };
 
+  const handleReopen = async () => {
+    setMarking(true);
+    try {
+      const updated = await updateAction(action.id, { status: 'active' });
+      onStatusChange(updated);
+    } catch (err) {
+      console.error('Failed to reopen action:', err);
+    } finally {
+      setMarking(false);
+    }
+  };
+
   const handleToggleMilestone = async (ms: ActionMilestone) => {
     try {
       const updated = await toggleMilestone(action.id, ms.id);
@@ -258,6 +367,25 @@ export function CompletableDetail({ action, onStatusChange }: CompletableDetailP
       );
     } catch (err) {
       console.error('Failed to toggle milestone:', err);
+    }
+  };
+
+  const handleAddMilestone = async (title: string) => {
+    try {
+      const maxOrder = milestones.reduce((max, m) => Math.max(max, m.sort_order), -1);
+      const created = await createMilestone(action.id, { title, sort_order: maxOrder + 1 });
+      setMilestones((prev) => [...prev, created]);
+    } catch (err) {
+      console.error('Failed to add milestone:', err);
+    }
+  };
+
+  const handleDeleteMilestone = async (ms: ActionMilestone) => {
+    try {
+      await deleteMilestone(action.id, ms.id);
+      setMilestones((prev) => prev.filter((m) => m.id !== ms.id));
+    } catch (err) {
+      console.error('Failed to delete milestone:', err);
     }
   };
 
@@ -299,6 +427,7 @@ export function CompletableDetail({ action, onStatusChange }: CompletableDetailP
         action={action}
         mentionCount={mentionCount}
         onMarkDone={handleMarkDone}
+        onReopen={handleReopen}
         marking={marking}
       />
 
@@ -323,6 +452,9 @@ export function CompletableDetail({ action, onStatusChange }: CompletableDetailP
         milestones={milestones}
         actionId={action.id}
         onToggle={handleToggleMilestone}
+        onAdd={handleAddMilestone}
+        onDelete={handleDeleteMilestone}
+        isCompleted={isCompleted}
       />
 
       {/* Journal mentions */}

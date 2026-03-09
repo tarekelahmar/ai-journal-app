@@ -74,6 +74,12 @@ def stamp_if_needed():
 
 
 if __name__ == "__main__":
-    init_tables()
-    stamp_if_needed()
-    logger.info("Database initialization complete.")
+    try:
+        logger.info("DATABASE_URL set: %s", bool(os.environ.get("DATABASE_URL")))
+        logger.info("ENV_MODE: %s", os.environ.get("ENV_MODE", "not set"))
+        init_tables()
+        stamp_if_needed()
+        logger.info("Database initialization complete.")
+    except Exception as e:
+        logger.error("Startup failed: %s", e, exc_info=True)
+        sys.exit(1)

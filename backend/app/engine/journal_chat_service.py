@@ -366,7 +366,7 @@ async def stream_chat_response(
 
     model = os.getenv(
         "ANTHROPIC_COMPANION_MODEL",
-        os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250514"),
+        os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
     )
 
     full_response = ""

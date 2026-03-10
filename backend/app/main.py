@@ -138,7 +138,7 @@ async def llm_health_check():
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     model = os.getenv(
         "ANTHROPIC_COMPANION_MODEL",
-        os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250514"),
+        os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
     )
 
     result = {

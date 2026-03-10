@@ -313,7 +313,7 @@ def _call_companion_llm(
     )
 
     # Companion needs a stronger model than factor extraction for tone/pattern quality
-    model = os.getenv("ANTHROPIC_COMPANION_MODEL", os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250514"))
+    model = os.getenv("ANTHROPIC_COMPANION_MODEL", os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"))
 
     try:
         client = anthropic.Anthropic(api_key=api_key)

@@ -85,7 +85,7 @@ def _generate_with_llm(
 
     model = os.getenv(
         "ANTHROPIC_COMPANION_MODEL",
-        os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+        os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
     )
 
     # Build data summary for the prompt

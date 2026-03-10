@@ -66,7 +66,14 @@ export function sendMessage(
       });
 
       if (!response.ok) {
-        throw new Error(`Chat request failed: ${response.status} ${response.statusText}`);
+        let detail = `${response.status} ${response.statusText}`;
+        try {
+          const errBody = await response.json();
+          if (errBody.detail) {
+            detail = typeof errBody.detail === 'string' ? errBody.detail : JSON.stringify(errBody.detail);
+          }
+        } catch { /* ignore parse errors */ }
+        throw new Error(detail);
       }
 
       const reader = response.body!.getReader();

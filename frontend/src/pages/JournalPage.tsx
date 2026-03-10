@@ -247,7 +247,10 @@ export default function JournalPage() {
           const lastGroup = { ...groups[groups.length - 1] };
           const msgs = [...lastGroup.messages];
           const lastMsg = { ...msgs[msgs.length - 1] };
-          lastMsg.content = lastMsg.content || 'Failed to get a response. Please try again.';
+          const errorHint = error?.message?.includes('422') ? ' (message may be too long)'
+            : error?.message?.includes('500') ? ' (server error)'
+            : '';
+          lastMsg.content = lastMsg.content || `Failed to get a response${errorHint}. Please try again.`;
           lastMsg.isStreaming = false;
           msgs[msgs.length - 1] = lastMsg;
           lastGroup.messages = msgs;

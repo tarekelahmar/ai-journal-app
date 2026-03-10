@@ -12,6 +12,7 @@
  * 5. Text input area (fixed bottom)
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChatThread } from '../components/journal/ChatThread';
 import { ChatInput } from '../components/journal/ChatInput';
 import { DailyScoreCard } from '../components/journal/DailyScoreCard';
@@ -43,6 +44,7 @@ function formatDateHeader(): string {
 }
 
 export default function JournalPage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
   // Chat state
@@ -311,36 +313,117 @@ export default function JournalPage() {
     );
   }
 
-  const todayScoreDisplay = todayDailyScore
-    ? todayDailyScore.score % 1 === 0
-      ? todayDailyScore.score.toFixed(0)
-      : todayDailyScore.score.toFixed(1)
+  // Show today's score if available, otherwise show the most recent score
+  const latestScore = dailyScores.length > 0 ? dailyScores[dailyScores.length - 1] : null;
+  const displayScore = todayDailyScore ?? latestScore;
+  const displayLabel = todayDailyScore ? 'Today' : latestScore ? 'Latest' : null;
+  const scoreDisplay = displayScore
+    ? displayScore.score % 1 === 0
+      ? displayScore.score.toFixed(0)
+      : displayScore.score.toFixed(1)
     : null;
 
   return (
     <div className="flex flex-col h-full bg-journal-bg">
       {/* ── Header ── */}
       <div className="px-4 pt-4 pb-2">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-[13px] text-journal-text-muted">{formatDateHeader()}</p>
-            <h1 className="text-2xl font-bold text-journal-text">Journal</h1>
-          </div>
-          {todayScoreDisplay && (
-            <div className="bg-journal-surface border border-journal-border rounded-xl px-3 py-1.5 text-center">
-              <p className="text-[10px] text-journal-text-muted leading-none">Today</p>
-              <p
-                className="text-[26px] font-bold leading-tight tabular-nums"
-                style={{ color: scoreColor(todayDailyScore!.score) }}
-              >
-                {todayScoreDisplay}
-              </p>
-            </div>
-          )}
+        <div>
+          <p className="text-[13px] text-journal-text-muted">{formatDateHeader()}</p>
+          <h1 className="text-2xl font-bold text-journal-text">Journal</h1>
         </div>
       </div>
 
-      {/* ── Scrollable content: sparkline + follow-up + conversation ── */}
+      {/* ── Trend sparkline card with today's score ── */}
+      {dailyScores.length >= 2 && (() => {
+        const last7 = dailyScores.slice(-7);
+        const scores = last7.map((d) => d.score);
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+        // Weekly change: compare last-7 avg vs previous-7 avg
+        const prev7 = dailyScores.slice(-14, -7);
+        const prevAvg = prev7.length > 0
+          ? prev7.reduce((a, b) => a + b.score, 0) / prev7.length
+          : avg;
+        const weekDelta = avg - prevAvg;
+        const deltaStr = (weekDelta >= 0 ? '+' : '') + weekDelta.toFixed(1);
+
+        // Trend color: olive if rising/flat, amber if slight dip, red-ish if falling hard
+        const trendColor =
+          weekDelta >= 0 ? '#7A8F6B'       // olive — stable or improving
+          : weekDelta >= -1 ? '#D4A24C'     // amber — slight decline
+          : '#C4704B';                       // terracotta — notable decline
+
+        // Build sparkline SVG path
+        const W = 100;
+        const H = 36;
+        const pad = 2;
+        const minS = Math.min(...scores);
+        const maxS = Math.max(...scores);
+        const range = maxS - minS || 1;
+        const pts = scores.map((s, i) => {
+          const x = pad + (i / Math.max(scores.length - 1, 1)) * (W - pad * 2);
+          const y = H - pad - ((s - minS) / range) * (H - pad * 2);
+          return `${x},${y}`;
+        });
+        const polyline = pts.join(' ');
+
+        // End dot position
+        const lastX = pad + ((scores.length - 1) / Math.max(scores.length - 1, 1)) * (W - pad * 2);
+        const lastY = H - pad - ((scores[scores.length - 1] - minS) / range) * (H - pad * 2);
+
+        return (
+          <div className="px-4 pb-2">
+            <div
+              className="flex items-center rounded-2xl px-4 py-3"
+              style={{ backgroundColor: '#FFFFFF', border: '1px solid #E8E4E0' }}
+            >
+              {/* Sparkline + trend stats */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0">
+                  <polyline
+                    points={polyline}
+                    fill="none"
+                    stroke={trendColor}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx={lastX} cy={lastY} r="3" fill={trendColor} />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: trendColor }}>
+                    {deltaStr} this week
+                  </p>
+                  <p className="text-xs" style={{ color: '#9B9B9B' }}>
+                    7-day avg: {avg.toFixed(1)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Score display (today or latest) — taps to /score */}
+              {scoreDisplay && displayScore && (
+                <>
+                  <div className="mx-3 self-stretch" style={{ width: 1, backgroundColor: '#E8E4E0' }} />
+                  <button
+                    onClick={() => navigate('/score')}
+                    className="text-center pl-1 cursor-pointer active:opacity-60 transition-opacity"
+                  >
+                    <p className="text-[10px] font-medium" style={{ color: '#9B9B9B' }}>{displayLabel}</p>
+                    <p
+                      className="text-[26px] font-bold leading-tight tabular-nums"
+                      style={{ color: scoreColor(displayScore.score) }}
+                    >
+                      {scoreDisplay}
+                    </p>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Scrollable content: follow-up + conversation ── */}
       <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
         <ChatThread
           sessionGroups={sessionGroups}

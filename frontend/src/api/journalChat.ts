@@ -79,6 +79,7 @@ export function sendMessage(
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let receivedDone = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -98,6 +99,7 @@ export function sendMessage(
               if (event.type === 'token') {
                 onToken(event.content);
               } else if (event.type === 'done') {
+                receivedDone = true;
                 onDone({
                   session_id: event.session_id,
                   message_id: event.message_id,
@@ -112,6 +114,11 @@ export function sendMessage(
             }
           }
         }
+      }
+
+      // If the stream ended without a proper 'done' event, treat as error
+      if (!receivedDone) {
+        throw new Error('Stream ended unexpectedly. The message may have been too long to process.');
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {

@@ -135,15 +135,45 @@ def save_message(
 
 # ── Context Assembly ──────────────────────────────────────────────
 
-def _build_conversation_messages(db: Session, session: JournalSession) -> List[Dict[str, str]]:
-    """Build Anthropic-format message list from session transcript."""
-    messages = (
+def _build_conversation_messages(
+    db: Session, session: JournalSession, max_messages: int = 40
+) -> List[Dict[str, str]]:
+    """
+    Build Anthropic-format message list from session transcript.
+
+    Caps at max_messages to prevent excessive token usage. If there are
+    more messages, only the most recent ones are included.
+    """
+    total = (
+        db.query(JournalMessage)
+        .filter(JournalMessage.session_id == session.id)
+        .count()
+    )
+
+    query = (
         db.query(JournalMessage)
         .filter(JournalMessage.session_id == session.id)
         .order_by(JournalMessage.created_at.asc())
-        .all()
     )
-    return [{"role": m.role, "content": m.content} for m in messages]
+
+    if total > max_messages:
+        # Take only the most recent messages
+        query = (
+            db.query(JournalMessage)
+            .filter(JournalMessage.session_id == session.id)
+            .order_by(JournalMessage.created_at.desc())
+            .limit(max_messages)
+        )
+        messages = list(reversed(query.all()))
+    else:
+        messages = query.all()
+
+    # Ensure the first message is always from "user" (Anthropic requirement)
+    result = [{"role": m.role, "content": m.content} for m in messages]
+    while result and result[0]["role"] != "user":
+        result.pop(0)
+
+    return result
 
 
 def _build_previous_session_text(db: Session, user_id: int, current_session_id: int) -> str:
@@ -419,6 +449,9 @@ async def stream_chat_response(
     # Runs before the done event so we can include extracted_factors for
     # real-time Actions tab updates. The streaming tokens are already fully
     # rendered, so the small delay on the done event is acceptable.
+    # Send SSE keepalive to prevent proxy/connection timeouts during analysis.
+    yield ": keepalive\n\n"
+
     extracted_factors: Dict[str, Any] = {}
     analysis: Optional[Dict] = None
     try:

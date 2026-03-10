@@ -6,7 +6,6 @@ import { RequireAuth } from './components/auth/RequireAuth'
 import { AppShell } from './components/navigation/AppShell'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import ConsentPage from './pages/ConsentPage'
 import OnboardingPage from './pages/OnboardingPage'
 import DailyScorePage from './pages/DailyScorePage'
 import JournalPage from './pages/JournalPage'
@@ -24,7 +23,6 @@ function App() {
       <Route path="/register" element={<RegisterPage />} />
 
       {/* Post-auth onboarding (no bottom nav, but requires login) */}
-      <Route path="/consent" element={<RequireAuth><ConsentPage /></RequireAuth>} />
       <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
 
       {/* Main app with AppShell (bottom nav) — protected */}

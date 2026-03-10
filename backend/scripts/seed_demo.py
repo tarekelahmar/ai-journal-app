@@ -28,7 +28,6 @@ from typing import Optional
 from app.core.database import SessionLocal, engine, Base
 from app.domain.models.user import User
 from app.domain.models.user_preference import UserPreference
-from app.domain.models.consent import Consent
 from app.domain.models.daily_checkin import DailyCheckIn
 from app.domain.models.journal_session import JournalSession
 from app.domain.models.journal_message import JournalMessage
@@ -543,7 +542,6 @@ def clear_existing(db):
         ("life_domain_scores", "user_id = :uid"),
         ("personal_patterns", "user_id = :uid"),
         ("milestones", "user_id = :uid"),
-        ("consents", "user_id = :uid"),
         ("audit_events", "user_id = :uid"),
         ("user_preferences", "user_id = :uid"),
     ]
@@ -608,21 +606,6 @@ def seed_preferences(db):
         user_id=USER_ID,
         preferred_depth_level=3,
         journal_onboarded=True,
-    ))
-
-
-def seed_consent(db):
-    """Create consent record."""
-    db.add(Consent(
-        user_id=USER_ID,
-        consent_version="1.0",
-        consent_timestamp=dt(day(1), 21, 0),
-        understands_not_medical_advice=True,
-        consents_to_data_analysis=True,
-        understands_recommendations_experimental=True,
-        understands_can_stop_anytime=True,
-        onboarding_completed=True,
-        onboarding_completed_at=dt(day(1), 21, 5),
     ))
 
 
@@ -1112,12 +1095,11 @@ def main():
         # 1. Clear existing
         clear_existing(db)
 
-        # 2. User + prefs + consent
+        # 2. User + prefs
         seed_user(db)
         seed_preferences(db)
-        seed_consent(db)
         db.flush()
-        print("  ✓ User + preferences + consent")
+        print("  ✓ User + preferences")
 
         # 3. Life domain scores (4 snapshots)
         n = seed_life_domain_scores(db)

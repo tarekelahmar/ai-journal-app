@@ -31,7 +31,7 @@ export default function LoginPage() {
         // Private mode: JWT login
         await login(email, password);
       }
-      navigate('/consent');
+      navigate('/score');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       setError(detail || 'Login failed. Please check your credentials.');

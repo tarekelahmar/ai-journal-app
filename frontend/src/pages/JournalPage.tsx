@@ -334,10 +334,11 @@ export default function JournalPage() {
       </div>
 
       {/* ── Trend sparkline card with today's score ── */}
-      {dailyScores.length >= 2 && (() => {
+      {(() => {
+        const hasSparkline = dailyScores.length >= 2;
         const last7 = dailyScores.slice(-7);
         const scores = last7.map((d) => d.score);
-        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const avg = hasSparkline ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 
         // Weekly change: compare last-7 avg vs previous-7 avg
         const prev7 = dailyScores.slice(-14, -7);
@@ -357,8 +358,8 @@ export default function JournalPage() {
         const W = 100;
         const H = 36;
         const pad = 2;
-        const minS = Math.min(...scores);
-        const maxS = Math.max(...scores);
+        const minS = hasSparkline ? Math.min(...scores) : 0;
+        const maxS = hasSparkline ? Math.max(...scores) : 10;
         const range = maxS - minS || 1;
         const pts = scores.map((s, i) => {
           const x = pad + (i / Math.max(scores.length - 1, 1)) * (W - pad * 2);
@@ -368,8 +369,8 @@ export default function JournalPage() {
         const polyline = pts.join(' ');
 
         // End dot position
-        const lastX = pad + ((scores.length - 1) / Math.max(scores.length - 1, 1)) * (W - pad * 2);
-        const lastY = H - pad - ((scores[scores.length - 1] - minS) / range) * (H - pad * 2);
+        const lastX = hasSparkline ? pad + ((scores.length - 1) / Math.max(scores.length - 1, 1)) * (W - pad * 2) : 0;
+        const lastY = hasSparkline ? H - pad - ((scores[scores.length - 1] - minS) / range) * (H - pad * 2) : 0;
 
         return (
           <div className="px-4 pb-2">
@@ -377,47 +378,55 @@ export default function JournalPage() {
               className="flex items-center rounded-2xl px-4 py-3"
               style={{ backgroundColor: '#FFFFFF', border: '1px solid #E8E4E0' }}
             >
-              {/* Sparkline + trend stats */}
+              {/* Sparkline + trend stats (or empty-state prompt) */}
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0">
-                  <polyline
-                    points={polyline}
-                    fill="none"
-                    stroke={trendColor}
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx={lastX} cy={lastY} r="3" fill={trendColor} />
-                </svg>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: trendColor }}>
-                    {deltaStr} this week
+                {hasSparkline ? (
+                  <>
+                    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0">
+                      <polyline
+                        points={polyline}
+                        fill="none"
+                        stroke={trendColor}
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx={lastX} cy={lastY} r="3" fill={trendColor} />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: trendColor }}>
+                        {deltaStr} this week
+                      </p>
+                      <p className="text-xs" style={{ color: '#9B9B9B' }}>
+                        7-day avg: {avg.toFixed(1)}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm" style={{ color: '#9B9B9B' }}>
+                    {dailyScores.length === 0
+                      ? 'Log your first score to start tracking'
+                      : 'Keep logging to see your trend'}
                   </p>
-                  <p className="text-xs" style={{ color: '#9B9B9B' }}>
-                    7-day avg: {avg.toFixed(1)}
-                  </p>
-                </div>
+                )}
               </div>
 
-              {/* Score display (today or latest) — taps to /score */}
-              {scoreDisplay && displayScore && (
-                <>
-                  <div className="mx-3 self-stretch" style={{ width: 1, backgroundColor: '#E8E4E0' }} />
-                  <button
-                    onClick={() => navigate('/score')}
-                    className="text-center pl-1 cursor-pointer active:opacity-60 transition-opacity"
-                  >
-                    <p className="text-[10px] font-medium" style={{ color: '#9B9B9B' }}>{displayLabel}</p>
-                    <p
-                      className="text-[26px] font-bold leading-tight tabular-nums"
-                      style={{ color: scoreColor(displayScore.score) }}
-                    >
-                      {scoreDisplay}
-                    </p>
-                  </button>
-                </>
-              )}
+              {/* Score display (today or latest, or "–") — taps to /score */}
+              <div className="mx-3 self-stretch" style={{ width: 1, backgroundColor: '#E8E4E0' }} />
+              <button
+                onClick={() => navigate('/score')}
+                className="text-center pl-1 cursor-pointer active:opacity-60 transition-opacity"
+              >
+                <p className="text-[10px] font-medium" style={{ color: '#9B9B9B' }}>
+                  {displayLabel ?? 'Score'}
+                </p>
+                <p
+                  className="text-[26px] font-bold leading-tight tabular-nums"
+                  style={{ color: scoreDisplay && displayScore ? scoreColor(displayScore.score) : '#C4C4C4' }}
+                >
+                  {scoreDisplay ?? '–'}
+                </p>
+              </button>
             </div>
           </div>
         );

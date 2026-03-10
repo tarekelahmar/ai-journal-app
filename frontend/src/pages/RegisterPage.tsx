@@ -43,8 +43,8 @@ export default function RegisterPage() {
       // Auto-login with the same credentials
       await login(email.trim(), password);
 
-      // Go to consent/onboarding flow
-      navigate('/consent');
+      // Go straight to the app
+      navigate('/score');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       const status = err?.response?.status;

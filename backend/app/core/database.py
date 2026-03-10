@@ -59,7 +59,6 @@ def init_db():
     from app.domain.models.domain_checkin import DomainCheckin  # noqa: F401
     from app.domain.models.milestone import Milestone  # noqa: F401
     from app.domain.models.user_preference import UserPreference  # noqa: F401
-    from app.domain.models.consent import Consent  # noqa: F401
     from app.domain.models.audit_event import AuditEvent  # noqa: F401
     from app.domain.models.action import Action  # noqa: F401
     from app.domain.models.action_milestone import ActionMilestone  # noqa: F401

@@ -29,7 +29,6 @@ from app.api.v1.life_domains import router as life_domains_router
 from app.api.v1.milestones import router as milestones_router
 from app.api.v1.domain_checkins import router as domain_checkins_router
 from app.api.v1.preferences import router as preferences_router
-from app.api.v1.consent import router as consent_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1 import auth
 from app.api.v1.users import router as users_router
@@ -110,7 +109,6 @@ app.include_router(domain_checkins_router)
 app.include_router(actions_router)
 app.include_router(analytics_router)
 app.include_router(preferences_router)
-app.include_router(consent_router)
 app.include_router(audit_router)
 app.include_router(system_router)
 app.include_router(system_public_router)

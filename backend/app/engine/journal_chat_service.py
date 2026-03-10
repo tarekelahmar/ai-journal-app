@@ -322,25 +322,34 @@ async def stream_chat_response(
         return
 
     # ── Build context ──
-    rolling_summary, active_patterns, today_factors = _get_context_from_companion(db, user_id)
-    previous_session_text = _build_previous_session_text(db, user_id, session.id)
-    active_actions_text = _format_active_actions(db, user_id)
+    try:
+        rolling_summary, active_patterns, today_factors = _get_context_from_companion(db, user_id)
+        previous_session_text = _build_previous_session_text(db, user_id, session.id)
+        active_actions_text = _format_active_actions(db, user_id)
 
-    # Resolve depth level from user preferences (not hardcoded)
-    from app.engine.journal_companion import _resolve_depth_level
-    depth_level = _resolve_depth_level(db, user_id, explicit_depth=None, word_count=None)
+        # Resolve depth level from user preferences (not hardcoded)
+        from app.engine.journal_companion import _resolve_depth_level
+        depth_level = _resolve_depth_level(db, user_id, explicit_depth=None, word_count=None)
 
-    system_prompt = build_chat_system_prompt(
-        depth_level=depth_level,
-        active_patterns_text=active_patterns,
-        rolling_summary_text=rolling_summary,
-        previous_session_text=previous_session_text,
-        today_factors_text=today_factors,
-        active_actions_text=active_actions_text,
-    )
+        system_prompt = build_chat_system_prompt(
+            depth_level=depth_level,
+            active_patterns_text=active_patterns,
+            rolling_summary_text=rolling_summary,
+            previous_session_text=previous_session_text,
+            today_factors_text=today_factors,
+            active_actions_text=active_actions_text,
+        )
 
-    # Build conversation history (including the new user message, already saved)
-    conversation_messages = _build_conversation_messages(db, session)
+        # Build conversation history (including the new user message, already saved)
+        conversation_messages = _build_conversation_messages(db, session)
+    except Exception as e:
+        logger.error(f"Context building failed ({type(e).__name__}): {e}", exc_info=True)
+        fallback_text = f"Something went wrong preparing your conversation. Error: {type(e).__name__}: {e}"
+        assistant_msg = save_message(db, session.id, user_id, "assistant", "I had trouble processing that. Please try again.")
+        db.commit()
+        yield f"data: {json.dumps({'type': 'token', 'content': fallback_text})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'session_id': session.id, 'message_id': assistant_msg.id})}\n\n"
+        return
 
     # ── Stream from Anthropic ──
     try:

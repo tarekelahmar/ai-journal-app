@@ -123,6 +123,10 @@ class Settings(BaseSettings):
         if not self.DEBUG and self.FRONTEND_URL:
             self.ALLOWED_ORIGINS = [self.FRONTEND_URL]
 
+        # Auto-add FRONTEND_URL to CORS_ORIGINS so it's always allowed
+        if self.FRONTEND_URL and self.FRONTEND_URL not in self.CORS_ORIGINS:
+            self.CORS_ORIGINS = [*self.CORS_ORIGINS, self.FRONTEND_URL]
+
         # Validate security settings
         if self.ENVIRONMENT == "production":
             if self.SECRET_KEY == "change-me-in-production":

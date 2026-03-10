@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { RequireAuth } from './components/auth/RequireAuth'
 import { AppShell } from './components/navigation/AppShell'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -21,11 +22,13 @@ function App() {
       {/* Pre-auth routes (no bottom nav) */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/consent" element={<ConsentPage />} />
-      <Route path="/onboarding" element={<OnboardingPage />} />
 
-      {/* Main app with AppShell (bottom nav) */}
-      <Route element={<AppShell />}>
+      {/* Post-auth onboarding (no bottom nav, but requires login) */}
+      <Route path="/consent" element={<RequireAuth><ConsentPage /></RequireAuth>} />
+      <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
+
+      {/* Main app with AppShell (bottom nav) — protected */}
+      <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route path="/score" element={<DailyScorePage />} />
         <Route path="/journal" element={<JournalPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />

@@ -385,7 +385,7 @@ async def stream_chat_response(
                 yield f"data: {json.dumps({'type': 'token', 'content': text})}\n\n"
 
     except Exception as e:
-        logger.error(f"Streaming failed: {e}")
+        logger.error(f"Streaming failed ({type(e).__name__}): {e}", exc_info=True)
         if not full_response:
             full_response = "I'm having trouble responding right now. Your message has been saved."
             yield f"data: {json.dumps({'type': 'token', 'content': full_response})}\n\n"

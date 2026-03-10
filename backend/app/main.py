@@ -130,6 +130,49 @@ async def health_check():
     return {"status": "healthy", "debug": settings.DEBUG, "database": "connected"}
 
 
+@app.get("/health/llm")
+async def llm_health_check():
+    """Diagnostic: test if Anthropic API key works."""
+    import os
+    enable_llm = os.getenv("ENABLE_LLM_TRANSLATION", "false").lower() == "true"
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    model = os.getenv(
+        "ANTHROPIC_COMPANION_MODEL",
+        os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250514"),
+    )
+
+    result = {
+        "enable_llm": enable_llm,
+        "api_key_set": bool(api_key),
+        "api_key_prefix": api_key[:12] + "..." if api_key else None,
+        "model": model,
+    }
+
+    if not enable_llm:
+        result["error"] = "ENABLE_LLM_TRANSLATION is not set to 'true'"
+        return result
+
+    if not api_key:
+        result["error"] = "ANTHROPIC_API_KEY is not set"
+        return result
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model=model,
+            max_tokens=20,
+            messages=[{"role": "user", "content": "Say hi in 5 words"}],
+        )
+        result["status"] = "ok"
+        result["test_response"] = response.content[0].text
+    except Exception as e:
+        result["status"] = "error"
+        result["error"] = f"{type(e).__name__}: {e}"
+
+    return result
+
+
 # ── Error handlers ───────────────────────────────────────────────────────────
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

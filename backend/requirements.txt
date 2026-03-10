@@ -9,9 +9,8 @@ psycopg2-binary==2.9.9
 alembic==1.13.1
 
 # Data Validation & Settings
-pydantic==2.5.0
+pydantic[email]==2.5.0
 pydantic-settings==2.1.0
-pydantic[email]
 
 # AI/ML (Anthropic only — journal companion, patterns, synthesis)
 anthropic>=0.40.0

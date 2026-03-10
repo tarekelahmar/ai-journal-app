@@ -47,7 +47,14 @@ export default function RegisterPage() {
       navigate('/consent');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
-      setError(detail || 'Registration failed. Please try again.');
+      const status = err?.response?.status;
+      if (detail) {
+        setError(detail);
+      } else if (err?.message?.includes('Network Error')) {
+        setError('Cannot reach the server. Please try again later.');
+      } else {
+        setError(`Registration failed (${status || err?.message || 'unknown error'})`);
+      }
     } finally {
       setLoading(false);
     }

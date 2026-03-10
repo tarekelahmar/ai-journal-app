@@ -33,7 +33,7 @@ router = make_v1_router(prefix="/api/v1/journal", tags=["journal-chat"])
 # ── Request/Response Schemas ──────────────────────────────────────
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=5000)
+    message: str = Field(..., min_length=1, max_length=20000)
     session_id: Optional[int] = None
 
 

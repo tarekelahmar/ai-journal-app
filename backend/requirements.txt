@@ -15,9 +15,6 @@ pydantic-settings==2.1.0
 # AI/ML (Anthropic only — journal companion, patterns, synthesis)
 anthropic>=0.40.0
 
-# Document Parsing (journal chat uploads — pure Python, no C deps)
-PyPDF2>=3.0.0
-
 # Security & Authentication
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4

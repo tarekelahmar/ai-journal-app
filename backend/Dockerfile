@@ -2,6 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# System dependencies for cryptography, psycopg2, etc.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install only production dependencies (cached layer)
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --prefer-binary -r requirements.txt

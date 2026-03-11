@@ -19,8 +19,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('journal_sessions', sa.Column('document_context', sa.Text(), nullable=True))
-    op.add_column('journal_sessions', sa.Column('document_filename', sa.String(255), nullable=True))
+    # Idempotent: create_all() may have already added these columns
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    existing_columns = {c['name'] for c in inspector.get_columns('journal_sessions')}
+
+    if 'document_context' not in existing_columns:
+        op.add_column('journal_sessions', sa.Column('document_context', sa.Text(), nullable=True))
+    if 'document_filename' not in existing_columns:
+        op.add_column('journal_sessions', sa.Column('document_filename', sa.String(255), nullable=True))
 
 
 def downgrade() -> None:

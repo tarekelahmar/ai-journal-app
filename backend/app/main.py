@@ -127,7 +127,7 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "debug": settings.DEBUG, "database": "connected"}
+    return {"status": "healthy", "debug": settings.DEBUG, "database": "connected", "version": "2026-03-11a"}
 
 
 # ── Error handlers ───────────────────────────────────────────────────────────

@@ -73,12 +73,20 @@ def stamp_if_needed():
 
 
 if __name__ == "__main__":
+    logger.info("DATABASE_URL set: %s", bool(os.environ.get("DATABASE_URL")))
+    logger.info("ENV_MODE: %s", os.environ.get("ENV_MODE", "not set"))
+
+    # Step 1: Create tables (critical — exit on failure)
     try:
-        logger.info("DATABASE_URL set: %s", bool(os.environ.get("DATABASE_URL")))
-        logger.info("ENV_MODE: %s", os.environ.get("ENV_MODE", "not set"))
         init_tables()
+    except Exception as e:
+        logger.error("Table creation failed: %s", e, exc_info=True)
+        sys.exit(1)
+
+    # Step 2: Run migrations (non-fatal — app can start without latest migrations)
+    try:
         stamp_if_needed()
         logger.info("Database initialization complete.")
     except Exception as e:
-        logger.error("Startup failed: %s", e, exc_info=True)
-        sys.exit(1)
+        logger.warning("Alembic migration failed (non-fatal): %s", e, exc_info=True)
+        logger.warning("App will start but some features may not work until migrations are fixed.")

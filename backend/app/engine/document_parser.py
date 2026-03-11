@@ -89,16 +89,35 @@ def _extract_pdf(file_bytes: bytes) -> str:
 
 
 def _extract_docx(file_bytes: bytes) -> str:
-    """Extract text from a DOCX file using python-docx."""
-    try:
-        from docx import Document
-    except ImportError:
-        raise ValueError("DOCX support is not available (python-docx not installed)")
+    """Extract text from a DOCX file using stdlib (zipfile + xml parser).
+
+    DOCX is a ZIP archive containing XML. The main content is in
+    word/document.xml. This avoids needing python-docx/lxml C deps.
+    """
+    import zipfile
+    import xml.etree.ElementTree as ET
 
     try:
-        doc = Document(io.BytesIO(file_bytes))
-        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as zf:
+            if "word/document.xml" not in zf.namelist():
+                raise ValueError("Invalid DOCX file (missing word/document.xml)")
+
+            with zf.open("word/document.xml") as doc_xml:
+                tree = ET.parse(doc_xml)
+
+        # Word XML namespace
+        ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+        paragraphs = []
+        for para in tree.iter(f"{ns}p"):
+            texts = [node.text for node in para.iter(f"{ns}t") if node.text]
+            if texts:
+                paragraphs.append("".join(texts))
+
         return "\n\n".join(paragraphs)
+    except zipfile.BadZipFile:
+        raise ValueError("Could not read DOCX file: invalid or corrupted file")
+    except ValueError:
+        raise
     except Exception as e:
         logger.error(f"DOCX extraction failed: {e}")
         raise ValueError(f"Could not read DOCX file: {e}")

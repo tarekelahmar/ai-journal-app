@@ -68,19 +68,19 @@ def _extract_txt(file_bytes: bytes) -> str:
 
 
 def _extract_pdf(file_bytes: bytes) -> str:
-    """Extract text from a PDF file using pdfplumber."""
+    """Extract text from a PDF file using PyPDF2 (pure Python, no C deps)."""
     try:
-        import pdfplumber
+        from PyPDF2 import PdfReader
     except ImportError:
-        raise ValueError("PDF support is not available (pdfplumber not installed)")
+        raise ValueError("PDF support is not available (PyPDF2 not installed)")
 
     text_parts = []
     try:
-        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text_parts.append(page_text)
+        reader = PdfReader(io.BytesIO(file_bytes))
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text_parts.append(page_text)
     except Exception as e:
         logger.error(f"PDF extraction failed: {e}")
         raise ValueError(f"Could not read PDF file: {e}")

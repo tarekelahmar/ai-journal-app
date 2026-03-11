@@ -37,6 +37,8 @@ export interface SessionGroup {
   daily_score: number | null;
   score_confirmed: boolean;
   messages: ChatMessageData[];
+  /** Filename of uploaded document (if any) */
+  document_filename?: string | null;
 }
 
 export interface ScoreConfirmResult {

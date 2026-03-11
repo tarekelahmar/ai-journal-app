@@ -2,14 +2,15 @@
 Journal V3 Chat API — streaming conversational companion.
 
 Endpoints:
-- POST /api/v1/journal/chat          — send message, stream SSE response
-- POST /api/v1/journal/chat/score    — confirm daily score for a session
-- GET  /api/v1/journal/sessions      — list recent sessions
+- POST /api/v1/journal/chat                   — send message, stream SSE response
+- POST /api/v1/journal/chat/score             — confirm daily score for a session
+- POST /api/v1/journal/chat/upload-document   — upload document for AI context
+- GET  /api/v1/journal/sessions               — list recent sessions
 - GET  /api/v1/journal/sessions/{id}/messages — get session transcript
 """
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -72,6 +73,13 @@ class SessionMessageResponse(BaseModel):
     created_at: str
 
 
+class DocumentUploadResponse(BaseModel):
+    session_id: int
+    filename: str
+    char_count: int
+    truncated: bool
+
+
 # ── Endpoints ─────────────────────────────────────────────────────
 
 @router.post("/chat", response_class=StreamingResponse)
@@ -123,6 +131,46 @@ def confirm_score(
         return ScoreConfirmResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/chat/upload-document", response_model=DocumentUploadResponse)
+async def upload_document(
+    file: UploadFile = File(...),
+    session_id: Optional[int] = Query(default=None),
+    user_id: int = Depends(get_request_user_id),
+    db: Session = Depends(get_db),
+):
+    """
+    Upload a document (PDF, TXT, DOCX) to use as context in the journal chat.
+
+    The document text is extracted and stored on the session. It will be
+    included as context for all subsequent AI responses in this session.
+    """
+    from app.engine.document_parser import extract_text, MAX_DOCUMENT_CHARS
+
+    # Read file bytes
+    file_bytes = await file.read()
+
+    # Extract text (raises ValueError on bad input)
+    try:
+        text, filename = extract_text(file.filename or "document", file_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    # Resolve or create session
+    session = resolve_session(db, user_id, session_id)
+
+    # Store extracted text on session
+    session.document_context = text
+    session.document_filename = filename
+    db.commit()
+
+    return DocumentUploadResponse(
+        session_id=session.id,
+        filename=filename,
+        char_count=len(text),
+        truncated=len(text) >= MAX_DOCUMENT_CHARS,
+    )
 
 
 @router.get("/sessions", response_model=List[SessionSummary])

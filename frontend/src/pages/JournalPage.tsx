@@ -26,6 +26,7 @@ import {
   sendMessage,
   confirmDailyScore,
   getSessions,
+  uploadDocument,
 } from '../api/journalChat';
 import type { DailyScore } from '../api/dailyScores';
 import type { Action } from '../types/Action';
@@ -62,6 +63,10 @@ export default function JournalPage() {
   // Daily scores for sparkline + header badge
   const [dailyScores, setDailyScores] = useState<DailyScore[]>([]);
   const todayDailyScore = dailyScores.find((s) => s.date === todayISO());
+
+  // Document upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [documentFilename, setDocumentFilename] = useState<string | null>(null);
 
   // Active actions
   const [activeActions, setActiveActions] = useState<Action[]>([]);
@@ -262,6 +267,52 @@ export default function JournalPage() {
 
     abortRef.current = controller;
   }, [inputText, isStreaming, currentSessionId, scoreStates]);
+
+  // ── Document upload ──────────────────────────────────────────
+
+  const handleFileSelect = useCallback(async (file: File) => {
+    // Client-side validation
+    const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+    if (!['.pdf', '.txt', '.docx'].includes(ext)) {
+      alert('Unsupported file type. Please upload PDF, TXT, or DOCX files.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File too large. Maximum size is 5MB.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const result = await uploadDocument(file, currentSessionId);
+      setCurrentSessionId(result.session_id);
+      setDocumentFilename(result.filename);
+
+      // If this is the first interaction, create a session group
+      setSessionGroups((prev) => {
+        const groups = [...prev];
+        const lastIdx = groups.length - 1;
+        if (lastIdx >= 0 && groups[lastIdx].session_id === result.session_id) {
+          groups[lastIdx] = { ...groups[lastIdx], document_filename: result.filename };
+        } else {
+          groups.push({
+            session_id: result.session_id,
+            started_at: new Date().toISOString(),
+            daily_score: null,
+            score_confirmed: false,
+            messages: [],
+            document_filename: result.filename,
+          });
+        }
+        return groups;
+      });
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err.message || 'Upload failed';
+      alert(`Upload failed: ${detail}`);
+    } finally {
+      setIsUploading(false);
+    }
+  }, [currentSessionId]);
 
   // ── Score confirmation ─────────────────────────────────────────
 
@@ -472,12 +523,34 @@ export default function JournalPage() {
         )}
       </div>
 
+      {/* ── Document indicator ── */}
+      {documentFilename && (
+        <div className="px-4 py-1.5">
+          <div className="inline-flex items-center gap-2 bg-journal-surface border border-journal-border rounded-full px-3 py-1.5 text-[12px] text-journal-text-muted">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span className="truncate max-w-[200px]">{documentFilename}</span>
+            <button
+              onClick={() => setDocumentFilename(null)}
+              className="text-journal-text-muted hover:text-journal-accent ml-1"
+              aria-label="Dismiss document indicator"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Text input ── */}
       <ChatInput
         value={inputText}
         onChange={setInputText}
         onSend={handleSend}
+        onFileSelect={handleFileSelect}
         disabled={isStreaming}
+        isUploading={isUploading}
       />
     </div>
   );

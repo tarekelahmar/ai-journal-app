@@ -30,6 +30,10 @@ class JournalSession(Base):
     # AI-generated session summary (for context carry-forward)
     summary = Column(Text, nullable=True)
 
+    # Uploaded document context (extracted text for AI reference)
+    document_context = Column(Text, nullable=True)
+    document_filename = Column(String(255), nullable=True)
+
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships

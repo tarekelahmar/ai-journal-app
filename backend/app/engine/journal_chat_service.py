@@ -361,6 +361,20 @@ async def stream_chat_response(
         from app.engine.journal_companion import _resolve_depth_level
         depth_level = _resolve_depth_level(db, user_id, explicit_depth=None, word_count=None)
 
+        # Document context (if user uploaded a document to this session)
+        document_context_text = ""
+        if session.document_context:
+            doc_name = session.document_filename or "document"
+            document_context_text = (
+                f"UPLOADED DOCUMENT ({doc_name}) — the user shared this document "
+                f"for reference in this conversation:\n"
+                f"--- BEGIN DOCUMENT ---\n"
+                f"{session.document_context}\n"
+                f"--- END DOCUMENT ---\n"
+                f"Refer to the document content naturally when the user asks about it. "
+                f"Do not summarise the entire document unless asked."
+            )
+
         system_prompt = build_chat_system_prompt(
             depth_level=depth_level,
             active_patterns_text=active_patterns,
@@ -368,6 +382,7 @@ async def stream_chat_response(
             previous_session_text=previous_session_text,
             today_factors_text=today_factors,
             active_actions_text=active_actions_text,
+            document_context_text=document_context_text,
         )
 
         # Build conversation history (including the new user message, already saved)

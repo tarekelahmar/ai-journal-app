@@ -131,6 +131,38 @@ export function sendMessage(
 }
 
 /**
+ * Upload a document to attach as context to the journal chat session.
+ * The AI will reference the document content in all subsequent responses.
+ */
+export interface DocumentUploadResult {
+  session_id: number;
+  filename: string;
+  char_count: number;
+  truncated: boolean;
+}
+
+export async function uploadDocument(
+  file: File,
+  sessionId?: number,
+): Promise<DocumentUploadResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const params: Record<string, any> = {};
+  if (sessionId) {
+    params.session_id = sessionId;
+  }
+
+  const res = await apiClient.post('/journal/chat/upload-document', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    params,
+    timeout: 30000, // Allow more time for PDF parsing
+  });
+  return res.data;
+}
+
+
+/**
  * Confirm the daily score for a session.
  */
 export async function confirmDailyScore(

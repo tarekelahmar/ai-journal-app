@@ -153,8 +153,10 @@ export async function uploadDocument(
     params.session_id = sessionId;
   }
 
+  // Set Content-Type to undefined so axios auto-detects multipart/form-data
+  // with the correct boundary (overrides apiClient's default application/json)
   const res = await apiClient.post('/journal/chat/upload-document', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { 'Content-Type': undefined as any },
     params,
     timeout: 30000, // Allow more time for PDF parsing
   });

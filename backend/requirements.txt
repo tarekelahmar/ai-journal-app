@@ -27,8 +27,5 @@ httpx==0.25.2
 # Environment & Configuration
 python-dotenv==1.0.0
 
-# Document parsing (journal chat uploads — pure Python, no C deps)
-PyPDF2>=3.0.0
-
 # Structured Logging (optional)
 structlog>=23.0.0

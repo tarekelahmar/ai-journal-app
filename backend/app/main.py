@@ -36,6 +36,7 @@ from app.api.v1.actions import router as actions_router
 from app.api.v1.analytics import router as analytics_router
 from app.api.v1.system import router as system_router, public_router as system_public_router
 from app.api.v1.auth_mode import auth_mode_router
+from app.api.v1.diagnostic import router as diagnostic_router
 
 settings = get_settings()
 
@@ -113,6 +114,7 @@ app.include_router(audit_router)
 app.include_router(system_router)
 app.include_router(system_public_router)
 app.include_router(auth_mode_router)
+app.include_router(diagnostic_router)
 
 
 # ── Root & health ────────────────────────────────────────────────────────────
@@ -127,7 +129,7 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "debug": settings.DEBUG, "database": "connected", "version": "2026-03-11a"}
+    return {"status": "healthy", "debug": settings.DEBUG, "database": "connected", "version": "2026-03-13a"}
 
 
 # ── Error handlers ───────────────────────────────────────────────────────────

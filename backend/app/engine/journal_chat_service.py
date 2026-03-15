@@ -323,6 +323,87 @@ def _format_active_actions(db: Session, user_id: int) -> str:
         return "Action data unavailable."
 
 
+def _get_diagnostic_context(db: Session, user_id: int) -> str:
+    """Build the diagnostic context block for the AI companion system prompt."""
+    try:
+        from app.domain.models.user_profile import UserProfile
+
+        profile = db.query(UserProfile).filter(
+            UserProfile.user_id == user_id,
+            UserProfile.diagnostic_completed == True,
+        ).first()
+
+        if not profile or not profile.profile_json:
+            return ""
+
+        p = profile.profile_json
+        sections = []
+
+        # Communication
+        comm = p.get("communication_settings", {})
+        sections.append(
+            f"DIAGNOSTIC BACKGROUND — what you know about this person from before they started journalling:\n\n"
+            f"Communication: depth level {comm.get('depth_level', 2)}, "
+            f"{comm.get('processing_style', 'mixed')} processor, "
+            f"challenge tolerance {comm.get('challenge_tolerance', 3)}/5, "
+            f"follow-through {comm.get('follow_through_baseline', 3)}/5, "
+            f"self-awareness {comm.get('self_awareness_level', 3)}/5."
+        )
+
+        # Focus
+        focus = p.get("focus", {})
+        sections.append(
+            f"Primary concern: {(focus.get('primary_concern_track') or 'general').replace('_', ' ')}. "
+            f"Priority domain: {focus.get('priority_domain', 'not specified')}. "
+            f"Domains under pressure: {', '.join(focus.get('domains_under_pressure', []))}."
+        )
+
+        # Patterns
+        patterns = p.get("pattern_baseline", {})
+        if patterns.get("identified_patterns"):
+            lines = [f"- {pat['name']}: {pat['description']}" for pat in patterns["identified_patterns"]]
+            sections.append("Identified patterns:\n" + "\n".join(lines))
+
+        # Key relationships
+        if patterns.get("key_relationships"):
+            lines = [f"- {r['name']}: {r['context']}" for r in patterns["key_relationships"]]
+            sections.append("Key relationships:\n" + "\n".join(lines))
+
+        # Triggers and peak conditions
+        if patterns.get("known_triggers"):
+            sections.append("Known triggers: " + "; ".join(patterns["known_triggers"]))
+        if patterns.get("peak_conditions"):
+            sections.append("Peak conditions: " + "; ".join(patterns["peak_conditions"]))
+
+        # Motivational structure
+        motiv = p.get("motivational_structure", {})
+        if motiv.get("stated_commitments"):
+            sections.append("Stated commitments: " + "; ".join(motiv["stated_commitments"]))
+        if motiv.get("values_behaviour_gap"):
+            sections.append(f"Core tension: {motiv['values_behaviour_gap']}")
+        if motiv.get("feared_future"):
+            sections.append(f"Feared future (their words): {motiv['feared_future'][:300]}")
+
+        # Narrative — open door
+        narrative = p.get("narrative_context", {})
+        if narrative.get("open_door_response"):
+            sections.append(f"What they wanted you to know: {narrative['open_door_response'][:300]}")
+
+        context = "\n\n".join(sections)
+        context += (
+            "\n\nIMPORTANT: Never say \"in your diagnostic you mentioned...\" or \"based on your assessment...\"\n"
+            "You know this information the way a close friend would — naturally, without citing the source.\n"
+            "Reference it when relevant, ignore it when not. The diagnostic is a starting point, not a cage —\n"
+            "people change, and what they told you weeks ago might not be true today. Trust journal entries\n"
+            "over the diagnostic when they conflict."
+        )
+        return context
+
+    except Exception as e:
+        logger.warning(f"Could not build diagnostic context: {e}")
+        return ""
+
+
 # ── Streaming Response ────────────────────────────────────────────
 
 async def stream_chat_response(
@@ -375,6 +456,9 @@ async def stream_chat_response(
                 f"Do not summarise the entire document unless asked."
             )
 
+        # Diagnostic context (from completed diagnostic intake)
+        diagnostic_context_text = _get_diagnostic_context(db, user_id)
+
         system_prompt = build_chat_system_prompt(
             depth_level=depth_level,
             active_patterns_text=active_patterns,
@@ -383,6 +467,7 @@ async def stream_chat_response(
             today_factors_text=today_factors,
             active_actions_text=active_actions_text,
             document_context_text=document_context_text,
+            diagnostic_context_text=diagnostic_context_text,
         )
 
         # Build conversation history (including the new user message, already saved)

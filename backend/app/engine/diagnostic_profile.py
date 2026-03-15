@@ -192,7 +192,7 @@ def _extract_focus(responses: Dict) -> dict:
 
     # Priority domain: from FU-3a if available, else lowest-scoring domain
     fu3a = responses.get("fu_3a", {})
-    priority_domain = fu3a.get("value")
+    priority_domain = fu3a.get("domain", fu3a.get("value"))
     if not priority_domain and domain_scores:
         priority_domain = min(domain_scores, key=domain_scores.get)
 
@@ -253,7 +253,7 @@ def _extract_pattern_baseline(responses: Dict) -> dict:
                 if isinstance(rel, dict) and rel.get("name"):
                     key_relationships.append({
                         "name": rel["name"],
-                        "context": rel.get("context", rel.get("sentence", ""))[:200],
+                        "context": rel.get("description", rel.get("context", rel.get("sentence", "")))[:200],
                     })
 
     # Known triggers from PA-2b (crisis/failure narrative)
@@ -321,7 +321,7 @@ def _extract_motivational_structure(responses: Dict) -> dict:
 
     # Priority domain (FU-3a)
     fu3a = responses.get("fu_3a", {})
-    priority_domain = fu3a.get("value")
+    priority_domain = fu3a.get("domain", fu3a.get("value"))
 
     # Feared future vividness (for AI urgency calibration)
     feared_future_vividness = urgency_level
@@ -345,13 +345,13 @@ def _extract_narrative_context(responses: Dict) -> dict:
     # Life chapters (PA-1)
     pa1 = responses.get("pa_1", {})
     life_chapters = []
-    chapters_data = pa1.get("chapters", [])
+    chapters_data = pa1.get("values", pa1.get("chapters", []))
     if isinstance(chapters_data, list):
         for ch in chapters_data[:5]:
             if isinstance(ch, dict) and ch.get("title"):
                 life_chapters.append({
                     "title": ch["title"],
-                    "summary": ch.get("summary", ch.get("text", ""))[:300],
+                    "summary": ch.get("description", ch.get("summary", ch.get("text", "")))[:300],
                 })
 
     # Defining experiences
@@ -532,7 +532,7 @@ def _build_synthesis_user_message(profile_json: dict, responses: Dict) -> str:
 
     # Life chapters (titles only)
     pa1 = responses.get("pa_1", {})
-    chapters = pa1.get("chapters", [])
+    chapters = pa1.get("values", pa1.get("chapters", []))
     if isinstance(chapters, list) and chapters:
         titles = [ch.get("title", "untitled") for ch in chapters if isinstance(ch, dict)]
         parts.append(f"Life chapters: {', '.join(titles)}")

@@ -417,6 +417,18 @@ def _resolve_depth_level(
     if explicit_depth is not None:
         return max(1, min(3, explicit_depth))
 
+    # Check diagnostic profile for depth level (takes priority over generic preference)
+    try:
+        from app.domain.models.user_profile import UserProfile
+        profile = db.query(UserProfile).filter(
+            UserProfile.user_id == user_id,
+            UserProfile.diagnostic_completed == True,
+        ).first()
+        if profile and profile.depth_level:
+            return profile.depth_level
+    except Exception:
+        pass
+
     # Try loading from user preferences
     try:
         from app.domain.models.user_preference import UserPreference

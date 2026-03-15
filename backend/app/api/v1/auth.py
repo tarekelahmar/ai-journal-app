@@ -42,6 +42,19 @@ def register(
         email=user.email,
         hashed_password=hashed,
     )
+
+    # Create default preferences for the new user
+    from app.domain.models.user_preference import UserPreference
+    db = user_repo.db
+    pref = UserPreference(
+        user_id=db_user.id,
+        preferred_depth_level=2,
+        journal_onboarded=False,
+        diagnostic_completed=False,
+    )
+    db.add(pref)
+    db.commit()
+
     return db_user
 
 

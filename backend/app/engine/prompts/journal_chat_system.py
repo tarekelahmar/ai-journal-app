@@ -119,6 +119,8 @@ CONTEXT — the user's recent history and patterns:
 
 {document_context}
 
+{diagnostic_context}
+
 Remember:
 - You are in a conversation. Respond naturally to what the user just said.
 - Reference their actual patterns and history when relevant, not generic advice.
@@ -136,6 +138,7 @@ def build_chat_system_prompt(
     today_factors_text: str = "No behavioral factors tracked today yet.",
     active_actions_text: str = "No active actions.",
     document_context_text: str = "",
+    diagnostic_context_text: str = "",
 ) -> str:
     """Assemble the full chat system prompt with injected context."""
     depth_instructions = DEPTH_LEVEL_INSTRUCTIONS.get(depth_level, DEPTH_LEVEL_INSTRUCTIONS[2])
@@ -149,4 +152,5 @@ def build_chat_system_prompt(
         today_factors=today_factors_text,
         active_actions=active_actions_text,
         document_context=document_context_text,
+        diagnostic_context=diagnostic_context_text,
     )

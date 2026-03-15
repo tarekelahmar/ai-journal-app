@@ -718,7 +718,6 @@ def _update_preferences(db: Session, user_id: int, profile_json: dict):
 
     comm = profile_json.get("communication_settings", {})
     pref.preferred_depth_level = comm.get("depth_level", 2)
-    pref.diagnostic_completed = True
     pref.journal_onboarded = True  # Skip app onboarding
 
     db.commit()

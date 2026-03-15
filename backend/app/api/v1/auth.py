@@ -50,7 +50,6 @@ def register(
         user_id=db_user.id,
         preferred_depth_level=2,
         journal_onboarded=False,
-        diagnostic_completed=False,
     )
     db.add(pref)
     db.commit()

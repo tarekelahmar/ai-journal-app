@@ -19,8 +19,5 @@ class UserPreference(Base):
     # Onboarding completed flag
     journal_onboarded = Column(Boolean, nullable=False, default=False)
 
-    # Whether the user has completed the diagnostic intake
-    diagnostic_completed = Column(Boolean, nullable=True, default=False)
-
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

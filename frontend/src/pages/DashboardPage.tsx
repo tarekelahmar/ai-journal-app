@@ -106,7 +106,7 @@ function scoresToWeekSlots(
 
 const CW = 400;
 const CH = 220;
-const CHART_PAD_X = 30;
+const CHART_PAD_X = 0;
 const CHART_TOP = 10;
 const CHART_BOTTOM = 180;
 const LABEL_Y = 205;
@@ -556,12 +556,12 @@ export default function DashboardPage() {
                 />
               )}
 
-              {/* (c) Current period bezier (thick white) */}
+              {/* (c) Current period bezier (white) */}
               <path
                 d={toBezierPath(chartData.currentPoints)}
                 fill="none"
                 stroke="#FFFFFF"
-                strokeWidth={4}
+                strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -571,8 +571,8 @@ export default function DashboardPage() {
                 const lastPt = chartData.currentPoints[chartData.currentPoints.length - 1];
                 return (
                   <>
-                    <circle cx={lastPt[0]} cy={lastPt[1]} r={16} fill="rgba(255,255,255,0.12)" />
-                    <circle cx={lastPt[0]} cy={lastPt[1]} r={8} fill="#FFFFFF" />
+                    <circle cx={lastPt[0]} cy={lastPt[1]} r={10} fill="rgba(255,255,255,0.12)" />
+                    <circle cx={lastPt[0]} cy={lastPt[1]} r={5} fill="#FFFFFF" />
                   </>
                 );
               })()}

@@ -1,122 +1,137 @@
 /**
- * Dashboard Screen — Track 5 rewrite.
+ * Dashboard Screen — Visual refresh with terracotta gradient hero.
  *
- * Sections (top → bottom):
- *   1. Header ("Your progress" / "Dashboard")
- *   2. Headline metrics row (Floor · Trend · Streak) — square color-block cards
- *   3. 30-day SVG area trend chart (straight lines, terracotta)
- *   4. Impact bars (Whoop-style, centre-divided, HURTS/HELPS header)
- *   5. Life-domain horizontal bars with deltas
- *   6. AI weekly insight card (headline + body)
+ * Sections:
+ *   1. Terracotta gradient block: header, inline metrics, avg score + toggle, bezier chart
+ *   2. Curved SVG transition to cream
+ *   3. Content cards: This Week nav, Impact bars, Life domains, Weekly insight
  */
-import React, { useEffect, useState } from 'react';
-import { Card } from '../components/ui/Card';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getDashboardAnalytics, type DashboardAnalytics, type ImpactFactor } from '../api/analytics';
-import { colors } from '../theme';
-import { LIFE_DIMENSIONS } from '../theme';
+import { colors, LIFE_DIMENSIONS } from '../theme';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-/** Domain bar color: ≤3 → red, >3 to <6 → amber, ≥6 → green */
 function domainBarColor(score: number): string {
   if (score >= 6) return colors.positive;
   if (score > 3) return colors.amber;
   return colors.negative;
 }
 
-// ── Data smoothing ──────────────────────────────────────────────
-
-/** 3-day weighted rolling average to soften daily noise. */
-function smoothScores(
-  raw: Array<{ date: string; score: number }>,
-): Array<{ date: string; score: number }> {
-  if (raw.length <= 2) return raw;
-  return raw.map((s, i) => {
-    if (i === 0 || i === raw.length - 1) return s;
-    const smoothed =
-      raw[i - 1].score * 0.25 + s.score * 0.5 + raw[i + 1].score * 0.25;
-    return { ...s, score: smoothed };
-  });
+function trendArrow(dir: string): string {
+  if (dir === 'up') return '↑';
+  if (dir === 'down') return '↓';
+  return '→';
 }
 
-// ── Trend Chart (SVG, straight lines on smoothed data) ───────────
+function trendWord(dir: string): string {
+  if (dir === 'up') return 'climbing';
+  if (dir === 'down') return 'sliding';
+  return 'stable';
+}
 
-const WARM_FILL = '#F5E6DD';
+function fmtDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+}
 
-function TrendChart({ scores }: { scores: Array<{ date: string; score: number }> }) {
-  if (scores.length < 2) {
-    return (
-      <div className="h-32 flex items-center justify-center text-sm text-journal-text-muted">
-        Need at least 2 data points for chart
-      </div>
-    );
+function dateToStr(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+// ── Bezier curve generation ─────────────────────────────────────
+
+/** Convert data points to smooth SVG cubic bezier path (catmull-rom) */
+function toBezierPath(points: [number, number][]): string {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0][0]},${points[0][1]}`;
+  if (points.length === 2) {
+    const [x1, y1] = points[0];
+    const [x2, y2] = points[1];
+    const mx = (x1 + x2) / 2;
+    return `M ${x1},${y1} C ${mx},${y1} ${mx},${y2} ${x2},${y2}`;
   }
 
-  const W = 320;
-  const H = 120;
-  const pad = { top: 12, right: 8, bottom: 20, left: 12 };
-  const innerW = W - pad.left - pad.right;
-  const innerH = H - pad.top - pad.bottom;
+  let d = `M ${points[0][0].toFixed(1)},${points[0][1].toFixed(1)}`;
 
-  const sorted = [...scores].sort((a, b) => a.date.localeCompare(b.date));
-  const smoothed = smoothScores(sorted);
-  const n = smoothed.length;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
 
-  const xScale = (i: number) => pad.left + (i / (n - 1)) * innerW;
-  const yScale = (v: number) => pad.top + innerH - ((v - 1) / 9) * innerH;
+    const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
 
-  const points: [number, number][] = smoothed.map((s, i) => [xScale(i), yScale(s.score)]);
-  const bottomY = pad.top + innerH;
+    d += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
 
-  // Straight-line path (L commands)
-  const linePath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]},${p[1]}`)
-    .join(' ');
-
-  const areaPath = [
-    linePath,
-    `L ${points[n - 1][0]},${bottomY}`,
-    `L ${points[0][0]},${bottomY}`,
-    'Z',
-  ].join(' ');
-
-  const yTicks = [2, 4, 6, 8, 10];
-
-  const fmtShort = (d: string) => {
-    const dt = new Date(d + 'T00:00:00');
-    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  const lastPt = points[n - 1];
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
-      {/* Faint horizontal gridlines */}
-      {yTicks.map((v) => (
-        <line key={v} x1={pad.left} y1={yScale(v)} x2={W - pad.right} y2={yScale(v)} stroke={colors.borderLight} strokeWidth={0.5} />
-      ))}
-
-      {/* Area fill — warm peach */}
-      <path d={areaPath} fill={WARM_FILL} />
-
-      {/* Straight line — terracotta */}
-      <path d={linePath} fill="none" stroke={colors.accent} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* Single dot on rightmost point — terracotta */}
-      <circle cx={lastPt[0]} cy={lastPt[1]} r={3.5} fill={colors.accent} stroke="white" strokeWidth={1.5} />
-
-      {/* X-axis: start date (left) + "Today" (right) */}
-      <text x={xScale(0)} y={H - 4} textAnchor="start" fontSize="8" fill={colors.textMuted}>
-        {fmtShort(sorted[0].date)}
-      </text>
-      <text x={xScale(n - 1)} y={H - 4} textAnchor="end" fontSize="8" fill={colors.textMuted}>
-        Today
-      </text>
-    </svg>
-  );
+  return d;
 }
 
-// ── Impact Bars (Whoop-style, using impact_percentage) ───────────
+// ── Week helpers ────────────────────────────────────────────────
+
+/** Get Monday and Sunday dates for a given week offset (0 = current week) */
+function getWeekRange(offset: number): { monday: Date; sunday: Date } {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sun
+  const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - mondayOffset + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { monday, sunday };
+}
+
+/** Map scores to day-of-week slots (0=Mon to 6=Sun) */
+function scoresToWeekSlots(
+  scores: Array<{ date: string; score: number }>,
+  mondayStr: string,
+  sundayStr: string,
+): (number | null)[] {
+  const slots: (number | null)[] = [null, null, null, null, null, null, null];
+  for (const s of scores) {
+    if (s.date < mondayStr || s.date > sundayStr) continue;
+    const d = new Date(s.date + 'T12:00:00');
+    let dow = d.getDay(); // 0=Sun
+    dow = dow === 0 ? 6 : dow - 1; // 0=Mon
+    slots[dow] = s.score;
+  }
+  return slots;
+}
+
+// ── Chart coordinate helpers ────────────────────────────────────
+
+const CW = 400;
+const CH = 140;
+const CHART_PAD_X = 30;
+const CHART_TOP = 10;
+const CHART_BOTTOM = 108;
+const LABEL_Y = 132;
+const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+function chartX(dayIndex: number): number {
+  return CHART_PAD_X + dayIndex * ((CW - 2 * CHART_PAD_X) / 6);
+}
+
+function chartY(score: number): number {
+  return CHART_TOP + (CHART_BOTTOM - CHART_TOP) * (1 - (score - 1) / 9);
+}
+
+/** Build [x,y] points from week slots, skipping nulls */
+function slotsToPoints(slots: (number | null)[]): [number, number][] {
+  const pts: [number, number][] = [];
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i] !== null) {
+      pts.push([chartX(i), chartY(slots[i]!)]);
+    }
+  }
+  return pts;
+}
+
+// ── Impact Bars (kept) ──────────────────────────────────────────
 
 function ImpactBars({ factors }: { factors: ImpactFactor[] }) {
   if (factors.length === 0) {
@@ -131,7 +146,6 @@ function ImpactBars({ factors }: { factors: ImpactFactor[] }) {
 
   return (
     <div>
-      {/* HURTS / % IMPACT / HELPS header row */}
       <div className="flex items-center justify-between mb-3.5">
         <span className="text-[9px] uppercase tracking-wider font-bold text-journal-negative">Hurts</span>
         <span className="text-[9px] uppercase tracking-wider text-journal-text-muted">% Impact</span>
@@ -151,18 +165,13 @@ function ImpactBars({ factors }: { factors: ImpactFactor[] }) {
                   {isPositive ? '+' : '-'}{factor.impact_percentage}%
                 </span>
               </div>
-              {/* Bar container — relative, no overflow hidden so centre line extends */}
               <div className="relative" style={{ height: 18 }}>
-                {/* Bar track */}
                 <div
                   className="absolute rounded-full bg-journal-surface-alt"
                   style={{ top: 4, bottom: 4, left: 0, right: 0 }}
                 />
-                {/* Filled portion */}
                 <div
-                  className={`absolute rounded-full ${
-                    isPositive ? 'bg-journal-positive' : 'bg-journal-negative'
-                  }`}
+                  className={`absolute rounded-full ${isPositive ? 'bg-journal-positive' : 'bg-journal-negative'}`}
                   style={{
                     top: 4,
                     bottom: 4,
@@ -170,7 +179,6 @@ function ImpactBars({ factors }: { factors: ImpactFactor[] }) {
                     width: `${pct}%`,
                   }}
                 />
-                {/* Centre divider line — extends 4px above and below bar */}
                 <div
                   className="absolute z-10"
                   style={{
@@ -192,7 +200,7 @@ function ImpactBars({ factors }: { factors: ImpactFactor[] }) {
   );
 }
 
-// ── Domain Bars ──────────────────────────────────────────────────
+// ── Domain Bars (kept) ──────────────────────────────────────────
 
 function DomainBars({
   current,
@@ -210,7 +218,6 @@ function DomainBars({
         const delta = prevScore !== null ? Math.round(score - prevScore) : null;
         const pct = ((score - 1) / 9) * 100;
 
-        // Delta colour class
         const deltaClass =
           delta !== null && delta > 0
             ? 'text-journal-positive'
@@ -220,12 +227,9 @@ function DomainBars({
 
         return (
           <div key={dim.key} className="flex items-center" style={{ gap: 10 }}>
-            {/* Domain name — fixed width */}
             <span className="text-[12px] text-journal-text-secondary shrink-0" style={{ width: 80 }}>
               {dim.shortLabel}
             </span>
-
-            {/* Bar — takes remaining space, matches impact bar thickness */}
             <div className="flex-1 h-2.5 bg-journal-surface-alt rounded-full overflow-hidden min-w-0">
               <div
                 className="h-full rounded-full transition-all duration-500"
@@ -235,16 +239,12 @@ function DomainBars({
                 }}
               />
             </div>
-
-            {/* Score number — always dark, bold */}
             <span
-              className="text-[15px] font-bold text-journal-text shrink-0"
+              className="text-[16px] font-bold text-journal-text shrink-0"
               style={{ width: 20, textAlign: 'right' }}
             >
               {rounded}
             </span>
-
-            {/* Delta — colour-coded by direction */}
             <span
               className={`text-[11px] font-semibold shrink-0 ${deltaClass}`}
               style={{ width: 28, textAlign: 'right' }}
@@ -260,25 +260,13 @@ function DomainBars({
   );
 }
 
-// ── Trend direction helpers ─────────────────────────────────────
-
-function trendArrow(dir: string): string {
-  if (dir === 'up') return '↑';
-  if (dir === 'down') return '↓';
-  return '→';
-}
-
-function trendWord(dir: string): string {
-  if (dir === 'up') return 'Climbing';
-  if (dir === 'down') return 'Sliding';
-  return 'Stable';
-}
-
-// ── Main Component ───────────────────────────────────────────────
+// ── Main Component ──────────────────────────────────────────────
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
+  const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -293,6 +281,90 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, []);
 
+
+  // ── Derive chart data from scores + period ───────────────────
+  const chartData = useMemo(() => {
+    if (!data || data.daily_scores.length === 0) return null;
+
+    const sorted = [...data.daily_scores].sort((a, b) => a.date.localeCompare(b.date));
+
+    if (period === 'weekly') {
+      const { monday, sunday } = getWeekRange(weekOffset);
+      const mondayStr = dateToStr(monday);
+      const sundayStr = dateToStr(sunday);
+
+      const { monday: prevMon, sunday: prevSun } = getWeekRange(weekOffset - 1);
+      const prevMonStr = dateToStr(prevMon);
+      const prevSunStr = dateToStr(prevSun);
+
+      const currentSlots = scoresToWeekSlots(sorted, mondayStr, sundayStr);
+      const previousSlots = scoresToWeekSlots(sorted, prevMonStr, prevSunStr);
+
+      const currentVals = currentSlots.filter((s): s is number => s !== null);
+      const previousVals = previousSlots.filter((s): s is number => s !== null);
+
+      const avg = currentVals.length > 0
+        ? currentVals.reduce((a, b) => a + b, 0) / currentVals.length
+        : null;
+      const prevAvg = previousVals.length > 0
+        ? previousVals.reduce((a, b) => a + b, 0) / previousVals.length
+        : null;
+
+      return {
+        currentPoints: slotsToPoints(currentSlots),
+        previousPoints: slotsToPoints(previousSlots),
+        avg,
+        delta: avg !== null && prevAvg !== null ? avg - prevAvg : null,
+      };
+    } else {
+      // Monthly: last 30 days as current, previous 30 as ghost
+      const today = new Date();
+      const thirtyAgo = new Date(today);
+      thirtyAgo.setDate(today.getDate() - 30);
+      const sixtyAgo = new Date(today);
+      sixtyAgo.setDate(today.getDate() - 60);
+
+      const thirtyStr = dateToStr(thirtyAgo);
+      const sixtyStr = dateToStr(sixtyAgo);
+
+      const currentScores = sorted.filter((s) => s.date >= thirtyStr);
+      const previousScores = sorted.filter((s) => s.date >= sixtyStr && s.date < thirtyStr);
+
+      // Map to 7 evenly spaced points for consistent chart rendering
+      const mapToSlots = (scores: Array<{ date: string; score: number }>): (number | null)[] => {
+        if (scores.length === 0) return [null, null, null, null, null, null, null];
+        const slots: (number | null)[] = [];
+        const step = Math.max(1, scores.length / 7);
+        for (let i = 0; i < 7; i++) {
+          const idx = Math.min(Math.round(i * step), scores.length - 1);
+          slots.push(scores[idx].score);
+        }
+        return slots;
+      };
+
+      const currentSlots = mapToSlots(currentScores);
+      const previousSlots = mapToSlots(previousScores);
+
+      const currentVals = currentScores.map((s) => s.score);
+      const previousVals = previousScores.map((s) => s.score);
+
+      const avg = currentVals.length > 0
+        ? currentVals.reduce((a, b) => a + b, 0) / currentVals.length
+        : null;
+      const prevAvg = previousVals.length > 0
+        ? previousVals.reduce((a, b) => a + b, 0) / previousVals.length
+        : null;
+
+      return {
+        currentPoints: slotsToPoints(currentSlots),
+        previousPoints: slotsToPoints(previousSlots),
+        avg,
+        delta: avg !== null && prevAvg !== null ? avg - prevAvg : null,
+      };
+    }
+  }, [data, period, weekOffset]);
+
+  // ── Loading state ─────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -301,154 +373,409 @@ export default function DashboardPage() {
     );
   }
 
+  // ── No data state ─────────────────────────────────────────────
   if (!data) {
     return (
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
         <div>
-          <p className="text-[13px] text-journal-text-muted">Your progress</p>
+          <p style={{ fontSize: 13, color: colors.textMuted }}>Your progress</p>
           <h1 className="text-2xl font-bold text-journal-text">Dashboard</h1>
         </div>
-        <Card>
+        <div style={{ background: 'white', borderRadius: 22, padding: 20 }}>
           <div className="text-center py-8">
             <p className="text-sm text-journal-text-muted">
               Start journaling to see your dashboard come alive.
             </p>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
 
   const hasDomains = Object.keys(data.current_domains).length > 0;
   const isEmpty = data.daily_scores.length === 0 && !hasDomains && data.impact_factors.length === 0;
+  const { monday: currentMonday, sunday: currentSunday } = getWeekRange(weekOffset);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6 pb-8 space-y-5">
-      {/* ── Header ──────────────────────────────────────────── */}
-      <div>
-        <p className="text-[13px] text-journal-text-muted">Your progress</p>
-        <h1 className="text-2xl font-bold text-journal-text">Dashboard</h1>
-      </div>
+    <div className="flex-1 overflow-y-auto">
+      {/* ═══════════════════════════════════════════════════════════
+          TERRACOTTA GRADIENT BLOCK
+          ═══════════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          background: 'linear-gradient(180deg, #C4704B 0%, #D4896A 70%, #D99A7A 100%)',
+          position: 'relative',
+          paddingBottom: 40,
+        }}
+      >
+        {/* ── Header + Metrics + Avg (padded content) ──────────── */}
+        <div style={{ padding: '24px 24px 0' }}>
+          {/* Header */}
+          <p style={{ fontSize: 13, color: 'white', opacity: 0.7, fontWeight: 500, marginBottom: 2 }}>
+            Your progress
+          </p>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'white', margin: '0 0 24px' }}>
+            Dashboard
+          </h1>
 
-      {/* ── Headline Metrics — square color-block cards ──────── */}
-      <div className="grid grid-cols-3 gap-3">
-        {/* Floor — terracotta bg */}
-        <div
-          className="rounded-card p-4 flex flex-col justify-between"
-          style={{ backgroundColor: colors.accent, aspectRatio: '1' }}
-        >
-          <p className="text-[12px] font-semibold uppercase tracking-wider text-white/70">Floor</p>
-          <p className="text-[50px] font-bold text-white leading-none">
-            {data.floor !== null ? data.floor.toFixed(1) : '—'}
-          </p>
-          <p className="text-[12px] text-white/70">
-            {data.floor_start !== null ? `up from ${data.floor_start.toFixed(1)}` : '14-day low'}
-          </p>
+          {/* ── Inline Metrics ──────────────────────────────────── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            {/* Floor */}
+            <div>
+              <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'white', opacity: 0.55, fontWeight: 600, marginBottom: 4 }}>
+                Floor
+              </p>
+              <p style={{ fontSize: 36, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>
+                {data.floor !== null ? data.floor.toFixed(1) : '—'}
+              </p>
+              <p style={{ fontSize: 11, color: 'white', opacity: 0.5 }}>
+                {data.floor_start !== null ? `from ${data.floor_start.toFixed(1)}` : '14-day low'}
+              </p>
+            </div>
+
+            {/* Trend */}
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'white', opacity: 0.55, fontWeight: 600, marginBottom: 4 }}>
+                Trend
+              </p>
+              <p style={{ fontSize: 36, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>
+                {trendArrow(data.trend_direction)}
+              </p>
+              <p style={{ fontSize: 11, color: 'white', opacity: 0.5 }}>
+                {trendWord(data.trend_direction)}
+              </p>
+            </div>
+
+            {/* Streak */}
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'white', opacity: 0.55, fontWeight: 600, marginBottom: 4 }}>
+                Streak
+              </p>
+              <p style={{ fontSize: 36, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>
+                {data.best_streak}
+              </p>
+              <p style={{ fontSize: 11, color: 'white', opacity: 0.5 }}>
+                {data.best_streak === 1 ? 'day' : 'days'}
+              </p>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', marginBottom: 20 }} />
+
+          {/* ── Average Score + Period Toggle ───────────────────── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+            <div>
+              <p style={{ fontSize: 11, textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', letterSpacing: 0.3 }}>
+                Average Score{' '}
+                {chartData?.delta != null && (
+                  <span style={{ color: chartData.delta >= 0 ? '#B8E6B0' : '#FFB0A0', fontWeight: 700, opacity: 1 }}>
+                    {chartData.delta >= 0 ? '▲' : '▼'} {Math.abs(chartData.delta).toFixed(1)}
+                  </span>
+                )}
+              </p>
+              <p style={{ fontSize: 48, fontWeight: 700, color: 'white', lineHeight: 1, marginTop: 4 }}>
+                {chartData?.avg != null ? chartData.avg.toFixed(1) : '—'}
+              </p>
+            </div>
+
+            {/* Toggle pill */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                borderRadius: 10,
+                padding: 3,
+                display: 'flex',
+              }}
+            >
+              {(['weekly', 'monthly'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => { setPeriod(p); setWeekOffset(0); }}
+                  style={{
+                    padding: '6px 16px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: period === p ? '#FFFFFF' : 'transparent',
+                    color: period === p ? '#C4704B' : 'rgba(255,255,255,0.65)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {p === 'weekly' ? 'Weekly' : 'Monthly'}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Trend — olive bg, arrow + word */}
-        <div
-          className="rounded-card p-4 flex flex-col justify-between"
-          style={{ backgroundColor: colors.positive, aspectRatio: '1' }}
+        {/* ── Chart SVG (full width, no horizontal padding) ─────── */}
+        {chartData && chartData.currentPoints.length >= 2 ? (
+          <>
+            <svg
+              width="100%"
+              height="140"
+              viewBox={`0 0 ${CW} ${CH}`}
+              preserveAspectRatio="none"
+              style={{ display: 'block' }}
+            >
+              {/* (a) Weekly average dashed line */}
+              {chartData.avg != null && (
+                <>
+                  <line
+                    x1={0}
+                    y1={chartY(chartData.avg)}
+                    x2={CW}
+                    y2={chartY(chartData.avg)}
+                    stroke="rgba(255,255,255,0.18)"
+                    strokeWidth={1}
+                    strokeDasharray="4,3"
+                  />
+                  <text
+                    x={CW - 8}
+                    y={chartY(chartData.avg) - 6}
+                    textAnchor="end"
+                    fontSize={8}
+                    fill="rgba(255,255,255,0.3)"
+                  >
+                    avg {chartData.avg.toFixed(1)}
+                  </text>
+                </>
+              )}
+
+              {/* (b) Previous period bezier (ghost, dashed) */}
+              {chartData.previousPoints.length >= 2 && (
+                <path
+                  d={toBezierPath(chartData.previousPoints)}
+                  fill="none"
+                  stroke="rgba(255,255,255,0.15)"
+                  strokeWidth={1.5}
+                  strokeDasharray="6,5"
+                  strokeLinecap="round"
+                />
+              )}
+
+              {/* (c) Current period bezier (thick white) */}
+              <path
+                d={toBezierPath(chartData.currentPoints)}
+                fill="none"
+                stroke="#FFFFFF"
+                strokeWidth={4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+
+              {/* (d) Current position dot with glow ring */}
+              {(() => {
+                const lastPt = chartData.currentPoints[chartData.currentPoints.length - 1];
+                return (
+                  <>
+                    <circle cx={lastPt[0]} cy={lastPt[1]} r={16} fill="rgba(255,255,255,0.12)" />
+                    <circle cx={lastPt[0]} cy={lastPt[1]} r={8} fill="#FFFFFF" />
+                  </>
+                );
+              })()}
+
+              {/* (e) Day labels */}
+              {DAY_LABELS.map((label, i) => (
+                <text
+                  key={i}
+                  x={chartX(i)}
+                  y={LABEL_Y}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fill="rgba(255,255,255,0.3)"
+                >
+                  {label}
+                </text>
+              ))}
+            </svg>
+
+            {/* (f) Legend */}
+            <div style={{ display: 'flex', gap: 16, padding: '8px 24px 4px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'white', display: 'inline-block' }} />
+                current
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.3)', display: 'inline-block' }} />
+                previous
+              </span>
+            </div>
+          </>
+        ) : (
+          <div style={{ padding: '32px 24px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
+            Need more data points for chart
+          </div>
+        )}
+
+        {/* ── Curved bottom edge ────────────────────────────────── */}
+        <svg
+          viewBox="0 0 400 48"
+          preserveAspectRatio="none"
+          style={{
+            display: 'block',
+            width: '100%',
+            height: 48,
+            position: 'absolute',
+            bottom: -1,
+            left: 0,
+          }}
         >
-          <p className="text-[12px] font-semibold uppercase tracking-wider text-white/70">Trend</p>
-          <p className="text-[50px] font-bold text-white leading-none">
-            {trendArrow(data.trend_direction)}
-          </p>
-          <div>
-            <p className="text-[12px] font-medium text-white/90">
-              {trendWord(data.trend_direction)}
-            </p>
-            {data.trend_avg !== null && (
-              <p className="text-[10px] text-white/60 mt-0.5">
-                7-day avg: {data.trend_avg.toFixed(1)}
+          <path d="M0,48 L0,0 Q200,40 400,0 L400,48 Z" fill="#FAF8F5" />
+        </svg>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════
+          CONTENT BELOW CURVE (cream background)
+          ═══════════════════════════════════════════════════════════ */}
+      <div style={{ padding: '0 16px 32px' }}>
+        <div className="space-y-4">
+
+          {/* ── This Week navigation card ───────────────────────── */}
+          <div
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 20,
+              boxShadow: '0 2px 12px rgba(42,37,32,0.04)',
+              padding: '16px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.text }}>
+                {period === 'weekly' ? 'This Week' : 'This Month'}
               </p>
+              <p style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                {fmtDate(currentMonday)} — {fmtDate(currentSunday)}
+              </p>
+            </div>
+            {period === 'weekly' && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setWeekOffset(weekOffset - 1)}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    background: '#F5F0EB',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 16,
+                    color: colors.textSecondary,
+                  }}
+                >
+                  ‹
+                </button>
+                <button
+                  onClick={() => { if (weekOffset < 0) setWeekOffset(weekOffset + 1); }}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    background: '#F5F0EB',
+                    border: 'none',
+                    cursor: weekOffset >= 0 ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 16,
+                    color: colors.textSecondary,
+                    opacity: weekOffset >= 0 ? 0.4 : 1,
+                  }}
+                >
+                  ›
+                </button>
+              </div>
             )}
           </div>
-        </div>
 
-        {/* Streak — white bg with border */}
-        <div
-          className="rounded-card p-4 flex flex-col justify-between bg-journal-surface"
-          style={{ border: `1px solid ${colors.border}`, aspectRatio: '1' }}
-        >
-          <p className="text-[12px] font-semibold uppercase tracking-wider text-journal-text-muted">Streak</p>
-          <p className={`text-[50px] font-bold leading-none ${data.best_streak > 0 ? 'text-journal-accent' : 'text-journal-text-muted'}`}>
-            {data.best_streak}
-          </p>
-          <p className="text-[12px] text-journal-text-muted">
-            {data.best_streak === 1 ? 'day' : 'days'}
-            {data.streak_threshold !== null ? ` above ${data.streak_threshold}` : ''}
-          </p>
+          {/* ── Impact Bars card ─────────────────────────────────── */}
+          <div
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 22,
+              boxShadow: '0 4px 20px rgba(42,37,32,0.04)',
+              padding: 20,
+            }}
+          >
+            <p style={{ fontSize: 14, fontWeight: 700, color: colors.text, marginBottom: 4 }}>
+              What impacts your score
+            </p>
+            <p style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16 }}>
+              Based on {data.entry_count} entries
+            </p>
+            <ImpactBars factors={data.impact_factors} />
+          </div>
+
+          {/* ── Life Domains card ────────────────────────────────── */}
+          {hasDomains && (
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: 22,
+                boxShadow: '0 4px 20px rgba(42,37,32,0.04)',
+                padding: 20,
+              }}
+            >
+              <p style={{ fontSize: 14, fontWeight: 700, color: colors.text, marginBottom: 16 }}>
+                Life domains
+              </p>
+              <DomainBars current={data.current_domains} previous={data.previous_domains} />
+            </div>
+          )}
+
+          {/* ── Weekly Insight card ──────────────────────────────── */}
+          {data.weekly_insight && (
+            <div
+              style={{
+                background: '#EDE6DC',
+                borderRadius: 22,
+                borderLeft: '4px solid #B8A48C',
+                padding: 20,
+              }}
+            >
+              <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: '#B8A48C', fontWeight: 600, marginBottom: 10 }}>
+                Weekly Insight · {data.weekly_insight.date_range}
+              </p>
+              <p style={{ fontSize: 16, fontWeight: 700, color: colors.text, lineHeight: '1.35', marginBottom: 8 }}>
+                {data.weekly_insight.headline}
+              </p>
+              <p style={{ fontSize: 13, color: colors.textSecondary, lineHeight: '1.55', whiteSpace: 'pre-line' }}>
+                {data.weekly_insight.body}
+              </p>
+            </div>
+          )}
+
+          {/* ── Empty state ──────────────────────────────────────── */}
+          {isEmpty && (
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: 22,
+                boxShadow: '0 4px 20px rgba(42,37,32,0.04)',
+                padding: 20,
+              }}
+            >
+              <div className="text-center py-8">
+                <p className="text-sm text-journal-text-muted">
+                  Start journaling to see your dashboard come alive.
+                </p>
+                <p className="text-xs text-journal-text-muted mt-1">
+                  Log daily scores and chat to build your personal insights.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* ── 30-Day Trend Chart ──────────────────────────────── */}
-      <Card>
-        <div className="mb-3">
-          <p className="text-[12px] font-semibold text-journal-text-secondary">
-            30-day trend
-          </p>
-          <p className="text-[11px] text-journal-text-muted mt-0.5">
-            Daily scores with weekly average
-          </p>
-        </div>
-        <TrendChart scores={data.daily_scores} />
-      </Card>
-
-      {/* ── Impact Bars ─────────────────────────────────────── */}
-      <Card>
-        <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-secondary mb-3">
-          What Impacts Your Score
-        </p>
-        <ImpactBars factors={data.impact_factors} />
-      </Card>
-
-      {/* ── Life Domains ────────────────────────────────────── */}
-      {hasDomains && (
-        <Card>
-          <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-secondary mb-3">
-            Life Domains
-          </p>
-          <DomainBars current={data.current_domains} previous={data.previous_domains} />
-        </Card>
-      )}
-
-      {/* ── Weekly Insight ──────────────────────────────────── */}
-      {data.weekly_insight && (
-        <Card variant="muted">
-          <p className="text-[10px] uppercase tracking-wider font-semibold text-journal-text-secondary mb-3">
-            This Week
-          </p>
-          <p className="text-[17px] font-bold text-journal-text leading-snug mb-2">
-            {data.weekly_insight.headline}
-          </p>
-          <p className="text-[13px] text-journal-text-secondary leading-relaxed whitespace-pre-line">
-            {data.weekly_insight.body}
-          </p>
-        </Card>
-      )}
-
-      {/* ── Based on N entries ──────────────────────────────── */}
-      {data.entry_count > 0 && (
-        <p className="text-[10px] text-journal-text-muted text-center">
-          Based on {data.entry_count} entries
-        </p>
-      )}
-
-      {/* Empty state */}
-      {isEmpty && (
-        <Card>
-          <div className="text-center py-8">
-            <p className="text-sm text-journal-text-muted">
-              Start journaling to see your dashboard come alive.
-            </p>
-            <p className="text-xs text-journal-text-muted mt-1">
-              Log daily scores and chat to build your personal insights.
-            </p>
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

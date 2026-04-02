@@ -452,7 +452,7 @@ export function HabitDetail({ action }: HabitDetailProps) {
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] text-journal-text truncate">{habit.title}</p>
                   <p className="text-[10px] text-journal-text-muted">
-                    Ongoing habit · {domainLabel(habit.primary_domain)}
+                    Ongoing · {domainLabel(habit.primary_domain)}
                   </p>
                 </div>
               </div>

@@ -309,49 +309,6 @@ function CompletedRow({
   );
 }
 
-// ── Summary Cards ───────────────────────────────────────────────
-
-function SummaryCards({
-  ongoingCount,
-  todoCount,
-  doneCount,
-}: {
-  ongoingCount: number;
-  todoCount: number;
-  doneCount: number;
-}) {
-  const cards = [
-    { count: ongoingCount, label: 'Ongoing', bg: '#E8EDE4', color: '#7A8F6B' },
-    { count: todoCount, label: 'To do', bg: '#F5E6DD', color: '#C4704B' },
-    { count: doneCount, label: 'Done', bg: '#E8E3DC', color: '#8C8278' },
-  ];
-
-  return (
-    <div className="grid grid-cols-3 gap-2.5">
-      {cards.map((card) => (
-        <div
-          key={card.label}
-          className="rounded-[14px] px-3 py-4 flex flex-col items-center justify-center"
-          style={{ backgroundColor: card.bg }}
-        >
-          <span
-            className="text-[28px] font-bold leading-none"
-            style={{ color: card.color }}
-          >
-            {card.count}
-          </span>
-          <span
-            className="text-[12px] font-medium mt-1.5"
-            style={{ color: card.color }}
-          >
-            {card.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ── Suggestion Card ──────────────────────────────────────────────
 
 function SuggestionCard({
@@ -606,13 +563,6 @@ export default function ActionsPage() {
 
       {!isEmpty && (
         <>
-          {/* ── Summary Cards ────────────────────────────────── */}
-          <SummaryCards
-            ongoingCount={ongoing.length}
-            todoCount={sortedActions.length}
-            doneCount={completed.length}
-          />
-
           {/* ── Domain Suggestion ──────────────────────────── */}
           {suggestion && (
             <SuggestionCard

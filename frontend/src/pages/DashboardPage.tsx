@@ -105,11 +105,11 @@ function scoresToWeekSlots(
 // ── Chart coordinate helpers ────────────────────────────────────
 
 const CW = 400;
-const CH = 140;
+const CH = 220;
 const CHART_PAD_X = 30;
 const CHART_TOP = 10;
-const CHART_BOTTOM = 108;
-const LABEL_Y = 132;
+const CHART_BOTTOM = 180;
+const LABEL_Y = 205;
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 function chartX(dayIndex: number): number {

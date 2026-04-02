@@ -516,9 +516,8 @@ export default function DashboardPage() {
           <>
             <svg
               width="100%"
-              height="140"
               viewBox={`0 0 ${CW} ${CH}`}
-              preserveAspectRatio="none"
+              preserveAspectRatio="xMidYMid meet"
               style={{ display: 'block' }}
             >
               {/* (a) Weekly average dashed line */}
